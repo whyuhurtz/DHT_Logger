@@ -1,0 +1,61 @@
+services:
+  # MySQL Database
+  mysql_dht:
+    image: mysql:8.0
+    container_name: mysql_dht
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - internal-app
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=caching_sha2_password
+
+  # FastAPI Application
+  fastapi_dht:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: fastapi_dht:v0.0.1
+    container_name: fastapi_dht
+    restart: unless-stopped
+    ports:
+      - "1337:8000"
+    volumes:
+      # Mount CA certificate (optional, already copied in Dockerfile)
+      - ./emqxsl-ca.crt:/app/emqxsl-ca.crt:ro
+    networks:
+      - internal-app
+    depends_on:
+      mysql_dht:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  internal-app:
+    driver: bridge
