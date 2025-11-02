@@ -26,6 +26,7 @@ services:
       --character-set-server=utf8mb4
       --collation-server=utf8mb4_unicode_ci
       --default-authentication-plugin=caching_sha2_password
+      --host-cache-size=0
 
   # FastAPI Application
   fastapi_dht:
