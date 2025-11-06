@@ -81,7 +81,9 @@ def run_command(cmd: list, cwd: str | None = None, shell: bool = False) -> bool:
       check=True,
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
-      text=True
+      text=True,
+      encoding='utf-8', # Fix error decoding output
+      errors='replace'  # Replace invalid chars with ?
     )
     if result.stdout:
       print(result.stdout)
