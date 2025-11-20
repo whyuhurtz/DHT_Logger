@@ -1,5 +1,5 @@
 // DHT Logger Source Code
-// Version: 0.0.1
+// Version: 0.1.1
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -7,31 +7,40 @@
 #include <DHT.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <HTTPClient.h>
 
 #include "secret.h"
 
 // Initialize DHT sensor using defines from secret.h
 DHT dht(DHT_PIN, DHT_TYPE);
-
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
-
 String mac_address;
+
+// Flag to prevent spamming alerts in Telegram
+bool alertSent = false;
+unsigned long lastAlertTime = 0;
+const signed long ALERT_COOLDOWN = 300000; // 5 minutes cooldown
+
+float TEMP_MAX_THRESHOLD = 30.0; // Change this variable according to your condition!
+float HUMI_MAX_THRESHOLD = 70.0; // Change this variable according to your condition!
 
 void setup() {
   Serial.begin(115200);
   
   // Connect to WiFi using credentials from secret.h
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD, 0, NULL, true);
   Serial.print("📡 Connecting to WiFi");
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+  
   Serial.println("\n✅ WiFi connected");
   Serial.print("📍 IP Address: ");
   Serial.println(WiFi.localIP());
-
+  
   // Get MAC address
   mac_address = WiFi.macAddress();
   Serial.print("🔌 MAC Address: ");
@@ -57,9 +66,9 @@ void setup() {
   }
   
   // Setup MQTT
-  espClient.setInsecure(); // Skip certificate validation (for testing)
+  espClient.setInsecure();
   client.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
-  client.setKeepAlive(60); // ← SET KEEP-ALIVE TO 60 SECONDS
+  client.setKeepAlive(60);
   client.setCallback(callback);
   
   // Initialize DHT sensor
@@ -70,20 +79,16 @@ void setup() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  // Print separator for better readability
- 
   Serial.print("=== 📨 ACK Message Received from Topic: ");
   Serial.print(topic);
   Serial.print(" ===");
   Serial.println();
-
-  // Convert payload to String
+  
   String message;
   for (unsigned int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
   
-  // Parse JSON data
   StaticJsonDocument<512> doc;
   DeserializationError error = deserializeJson(doc, message);
   
@@ -94,13 +99,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
     return;
   }
   
-  // Extract fields from JSON
   bool success = doc["success"] | false;
   const char* device_id = doc["device_id"] | "N/A";
   const char* mac_addr = doc["mac_address"] | "N/A";
   const char* timestamp = doc["timestamp"] | "N/A";
   
-  // Print parsed data
   Serial.print("🆔 Device ID: ");
   Serial.println(device_id);
   Serial.print("💻 MAC Address: ");
@@ -108,23 +111,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("🕒 Timestamp: ");
   Serial.println(timestamp);
   
-  // Check success status
   if (success) {
-    // Success case
     int log_id = doc["log_id"] | 0;
     const char* message_text = doc["message"] | "Data logged successfully";
-    
     Serial.println("✅ Status: SUCCESS");
     Serial.print("📊 Log ID: ");
     Serial.println(log_id);
     Serial.print("🧾 Message: ");
     Serial.println(message_text);
     Serial.println("🎉 Data successfully saved to database!");
-    
   } else {
-    // Failure case
     const char* error_msg = doc["error"] | "Unknown error";
-    
     Serial.println("❌ Status: FAILED");
     Serial.print("👉 Error: ");
     Serial.println(error_msg);
@@ -135,9 +132,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void reconnect() {
   while (!client.connected()) {
     Serial.print("🔌 Connecting to MQTT broker...");
-    
     String clientId = "ESP32_DHT_" + mac_address;
-    clientId.replace(":", ""); // Remove colons from MAC address
+    clientId.replace(":", "");
     
     if (client.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
       Serial.println("connected ✅");
@@ -160,10 +156,78 @@ String getISOTimestamp() {
   }
   
   char buffer[25];
-  // Format: "2025-01-11T12:30:45"
   strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &timeinfo);
-  
   return String(buffer);
+}
+
+// ===========================================
+// v0.1.1: Send Alert Notification to Telegram
+// ===========================================
+bool sendTelegramAlert(float temperature, float humidity) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("❌ WiFi not connected!");
+    return false;
+  }
+
+  // Build alert message
+  String message = "⚠️ *ALERT: Threshold Exceeded!*\n\n";  // ← Fixed: single \n
+  message += "🌡️ *Temperature:* " + String(temperature, 1) + "°C\n";
+  message += "💧 *Humidity:* " + String(humidity, 1) + "%\n";
+  message += "🕒 *Time:* " + getISOTimestamp() + "\n";
+  message += "💻 *Device ID:* " + String(DEVICE_ID) + "\n\n";
+  
+  // Check which threshold exceeded
+  if (temperature >= TEMP_MAX_THRESHOLD) {
+    message += "🔥INFO: Temperature Threshold >= " + String(TEMP_MAX_THRESHOLD, 1) + "°C\n";
+  }
+  if (humidity >= HUMI_MAX_THRESHOLD) {
+    message += "💦INFO: Humidity Threshold >= " + String(HUMI_MAX_THRESHOLD, 1) + "%\n";
+  }
+
+  // Prepare HTTP client
+  HTTPClient http;
+  WiFiClientSecure client;
+  client.setInsecure();
+  
+  String url = "https://api.telegram.org/bot";
+  url += TELEGRAM_BOT_TOKEN;
+  url += "/sendMessage";
+
+  bool overallSuccess = true;
+  int successCount = 0;
+  int totalTargets = 0;
+
+  // Send alert notification to Telegram
+  #ifdef TELEGRAM_CHAT_ID
+    totalTargets++;
+    Serial.println("💬 Sending Alert Notification to Telegram...");
+    
+    StaticJsonDocument<512> doc;
+    doc["chat_id"] = String(TELEGRAM_CHAT_ID);
+    doc["text"] = message;
+    doc["parse_mode"] = "Markdown";
+    
+    String payload;
+    serializeJson(doc, payload);
+    
+    http.begin(client, url);
+    http.addHeader("Content-Type", "application/json");
+    int httpCode = http.POST(payload);
+    
+    if (httpCode > 0) {
+      Serial.println("✅ Sent alarm notification (Code: " + String(httpCode) + ")");
+      successCount++;
+    } else {
+      Serial.println("❌ Failed to send alarm notification");
+      overallSuccess = false;
+    }
+    http.end();
+  #endif
+
+  // Summary of alert notifications
+  Serial.printf("📊 Telegram Alert Summary: %d/%d sent successfully\n", successCount, totalTargets);
+  
+  return overallSuccess;
 }
 
 void loop() {
@@ -182,9 +246,30 @@ void loop() {
     return;
   }
   
+  // ======================================================
+  // v0.1.1: Check threshold and send Telegram alert
+  // ======================================================
+  bool thresholdExceeded = (temperature >= TEMP_MAX_THRESHOLD) || 
+                            (humidity >= HUMI_MAX_THRESHOLD);
+  
+  unsigned long currentTime = millis();
+  bool cooldownPassed = (currentTime - lastAlertTime) >= ALERT_COOLDOWN;
+  
+  if (thresholdExceeded && (!alertSent || cooldownPassed)) {
+    Serial.println("\n🚨 THRESHOLD EXCEEDED! Sending alert...");
+    if (sendTelegramAlert(temperature, humidity)) {
+      alertSent = true;
+      lastAlertTime = currentTime;
+    }
+  } else if (!thresholdExceeded && alertSent) {
+    // Reset flag when values return to normal
+    alertSent = false;
+    Serial.println("✅ Values returned to normal range");
+  }
+  // ============================================================
+  
   // Get ISO timestamp string
   String timestamp = getISOTimestamp();
-  
   if (timestamp == "") {
     Serial.println("⚠️ No valid timestamp, skipping send");
     delay(5000);
@@ -214,11 +299,11 @@ void loop() {
   
   // NON-BLOCKING DELAY: Keep calling client.loop() during wait
   unsigned long startWait = millis();
-  while (millis() - startWait < 30000) {  // Wait 30 seconds
+  while (millis() - startWait < 30000) {
     if (!client.connected()) {
       reconnect();
     }
-    client.loop();  // Keep processing MQTT messages
-    delay(100);     // Small delay to prevent watchdog timeout
+    client.loop();
+    delay(100);
   }
 }

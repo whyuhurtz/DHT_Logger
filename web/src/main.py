@@ -16,7 +16,9 @@ from src.models import (
   get_device_stats, 
   get_device_logs,
   get_logs_by_mac,
-  get_total_logs
+  get_total_logs,
+  get_device_chart_data,
+  get_all_devices
 )
 from src.mqtt import (
   mqtt_client,
@@ -259,6 +261,35 @@ async def get_overview_stats():
     }
   except Exception as e:
     logger.error(f"Error fetching overview stats: {e}")
+    return {"success": False, "error": str(e)}
+
+@app.get("/api/devices", tags=["Devices"])
+async def get_devices_list():
+  """Get list of all unique devices"""
+  try:
+    devices = await get_all_devices()
+    return {
+      "success": True,
+      "count": len(devices),
+      "devices": devices
+    }
+  except Exception as e:
+    logger.error(f"Error fetching devices: {e}")
+    return {"success": False, "error": str(e)}
+
+@app.get("/api/chart/device/{device_id}", tags=["Chart"])
+async def get_device_chart(device_id: str, limit: int = 50):
+  """Get chart data for a specific device"""
+  try:
+    data = await get_device_chart_data(device_id, limit)
+    return {
+      "success": True,
+      "device_id": device_id,
+      "count": len(data),
+      "data": data
+    }
+  except Exception as e:
+    logger.error(f"Error fetching chart data: {e}")
     return {"success": False, "error": str(e)}
 
 # Custom 404 Handler

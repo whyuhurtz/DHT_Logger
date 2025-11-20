@@ -671,3 +671,76 @@ footer {
         font-size: 10pt;
     }
 }
+
+/* ========================================== */
+/* CHART.JS STYLES (RESPONSIVE)              */
+/* ========================================== */
+
+#chart-container {
+    position: relative;
+    width: 100%; /* ✅ Full width */
+    height: 500px; /* ✅ Increased default height */
+    padding: 20px 0;
+}
+
+#chart-container canvas {
+    width: 100% !important; /* ✅ Force full width */
+    height: 100% !important; /* ✅ Force full height */
+}
+
+#chart-empty {
+    padding: 80px 20px;
+}
+
+#chart-loading {
+    padding: 80px 20px;
+}
+
+/* Desktop & Tablet (≥ 992px) - Taller chart */
+@media (min-width: 992px) {
+    #chart-container {
+        height: 550px;
+    }
+}
+
+/* Tablet (768px - 991px) */
+@media (max-width: 991px) and (min-width: 768px) {
+    #chart-container {
+        height: 450px;
+    }
+}
+
+/* Mobile & Small Tablets (≤ 767px) */
+@media (max-width: 767px) {
+    #chart-container {
+        height: 350px; /* ✅ Taller for mobile */
+        padding: 15px 0;
+    }
+    
+    /* Adjust chart padding on mobile */
+    .card-body {
+        padding: 1rem 0.75rem;
+    }
+}
+
+/* Extra Small Devices (≤ 576px) */
+@media (max-width: 576px) {
+    #chart-container {
+        height: 320px;
+        padding: 10px 0;
+    }
+}
+
+/* Extra Extra Small (≤ 375px - iPhone SE) */
+@media (max-width: 375px) {
+    #chart-container {
+        height: 280px;
+    }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    #chart-container {
+        height: 280px; /* ✅ Shorter in landscape */
+    }
+}

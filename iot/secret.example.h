@@ -26,6 +26,10 @@
 
 // Device Configuration
 // Remember! Only 11 characters that will be stored in db
-#define DEVICE_ID "ESP32_01"  // Change this for each device
+#define DEVICE_ID "Testing"  // Change this for each device
+
+// Telegram Bot Configuration
+#define TELEGRAM_BOT_TOKEN "AAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"  // Change this to your Telegram Bot Token
+#define TELEGRAM_CHAT_ID "-xxxxxxxxxx" // Change this to your Personal/Group Chat ID
 
 #endif // SECRET_H

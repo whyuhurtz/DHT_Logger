@@ -189,3 +189,36 @@ async def get_total_logs():
     await cursor.execute(query)
     result = await cursor.fetchone()
     return result['total']
+
+async def get_device_chart_data(device_id: str, limit: int = 50):
+  """Get chart data for a specific device (latest N readings)"""
+  query = """
+  SELECT 
+    temperature,
+    humidity,
+    timestamp,
+    DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:%%i:%%s') as datetime,
+    UNIX_TIMESTAMP(timestamp) as unix_timestamp
+  FROM sensor_data 
+  WHERE device_id = %s
+  ORDER BY timestamp ASC
+  LIMIT %s
+  """
+  
+  async with db.get_cursor() as cursor:
+    await cursor.execute(query, (device_id, limit))
+    results = await cursor.fetchall()
+    return results
+
+async def get_all_devices():
+  """Get list of all unique devices"""
+  query = """
+  SELECT DISTINCT device_id 
+  FROM sensor_data 
+  ORDER BY device_id ASC
+  """
+  
+  async with db.get_cursor() as cursor:
+    await cursor.execute(query)
+    results = await cursor.fetchall()
+    return [row['device_id'] for row in results]

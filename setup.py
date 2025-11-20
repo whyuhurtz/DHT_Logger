@@ -1,6 +1,6 @@
 """
 DHT Logger Setup Script
-Version: 0.0.1
+Version: 0.1.1
 
 Usage:
   python setup.py --deploy docker    # Deploy using Docker Compose
