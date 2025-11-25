@@ -25,7 +25,7 @@
 #define DHT_TYPE DHT22 // Change this according to your DHT sensor types
 
 // Device Configuration
-// Remember! Only 11 characters that will be stored in db
+// Remember! Only 100 characters that will be stored in db
 #define DEVICE_ID "Testing"  // Change this for each device
 
 // Telegram Bot Configuration

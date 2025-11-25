@@ -86,7 +86,7 @@
             </div>
         </div>
 
-        <!-- ✨ v0.1.1: Chart Section -->
+        <!-- ✨ v0.1.2: Chart Section -->
         <div class="card mb-4">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
@@ -124,9 +124,17 @@
                     <p class="mt-2">Loading chart data...</p>
                 </div>
 
-                <!-- Chart canvas (hidden initially) -->
+                <!-- NEW: 2 Chart Containers (Stacked) -->
                 <div id="chart-container" class="d-none">
-                    <canvas id="sensorChart"></canvas>
+                    <!-- Temperature Chart -->
+                    <div class="chart-wrapper mb-3">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                    
+                    <!-- Humidity Chart -->
+                    <div class="chart-wrapper">
+                        <canvas id="humidityChart"></canvas>
+                    </div>
                 </div>
 
                 <!-- Empty state (visible initially) -->
@@ -221,7 +229,7 @@
     <!-- Footer -->
     <footer class="mt-5 py-3 bg-light">
         <div class="container text-center text-muted">
-            <p class="mb-0">DHT Logger App v0.1.1 | Built with FastAPI & Bootstrap</p>
+            <p class="mb-0">DHT Logger App v0.1.2 | Built with FastAPI & Bootstrap</p>
         </div>
     </footer>
 

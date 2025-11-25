@@ -4,7 +4,7 @@
 
 **IoT Sensor Data Logger with Real-time Dashboard**
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/) [![EMQX](https://img.shields.io/badge/EMQX-00B388?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.emqx.com/) [![Version](https://img.shields.io/badge/version-0.1.1-blue?style=for-the-badge)](https://github.com/whyuhurtz/DHT_Logger/releases)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/) [![EMQX](https://img.shields.io/badge/EMQX-00B388?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.emqx.com/) [![Version](https://img.shields.io/badge/version-0.1.2-blue?style=for-the-badge)](https://github.com/whyuhurtz/DHT_Logger/releases)
 
 </div>
 

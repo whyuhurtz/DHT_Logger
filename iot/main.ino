@@ -1,5 +1,5 @@
 // DHT Logger Source Code
-// Version: 0.1.1
+// Version: 0.1.2
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -23,7 +23,7 @@ unsigned long lastAlertTime = 0;
 const signed long ALERT_COOLDOWN = 300000; // 5 minutes cooldown
 
 float TEMP_MAX_THRESHOLD = 30.0; // Change this variable according to your condition!
-float HUMI_MAX_THRESHOLD = 70.0; // Change this variable according to your condition!
+float HUMI_MAX_THRESHOLD = 75.0; // Change this variable according to your condition!
 
 void setup() {
   Serial.begin(115200);
@@ -299,7 +299,7 @@ void loop() {
   
   // NON-BLOCKING DELAY: Keep calling client.loop() during wait
   unsigned long startWait = millis();
-  while (millis() - startWait < 30000) {
+  while (millis() - startWait < 1800000) { // v0.1.2: Send data every 30 minutes (1800000 ms)
     if (!client.connected()) {
       reconnect();
     }

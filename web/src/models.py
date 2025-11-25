@@ -10,7 +10,7 @@ async def init_tables():
   create_table_query = """
   CREATE TABLE IF NOT EXISTS sensor_data (
     log_id INT AUTO_INCREMENT PRIMARY KEY,
-    device_id VARCHAR(11) NOT NULL,
+    device_id VARCHAR(100) NOT NULL,
     mac_address VARCHAR(17) NOT NULL,
     temperature FLOAT NOT NULL,
     humidity FLOAT NOT NULL,

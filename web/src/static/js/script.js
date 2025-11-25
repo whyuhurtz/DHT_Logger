@@ -1,10 +1,11 @@
 // Global variables
 let currentPage = 1;
-let recordsPerPage = 10; // Dynamic records per page
-let selectedDeviceFilter = ''; // Device filter
+let recordsPerPage = 10;
+let selectedDeviceFilter = '';
 let eventSource = null;
-let sensorChart = null; // Chart.js instance
-let selectedChartDevice = ''; // Selected device for chart
+let temperatureChart = null;
+let humidityChart = null;
+let selectedChartDevice = '';
 
 // DOM Elements
 const loadingDiv = document.getElementById('loading');
@@ -20,7 +21,7 @@ const totalLogsEl = document.getElementById('total-logs');
 const uniqueDevicesEl = document.getElementById('unique-devices');
 const latestTimeEl = document.getElementById('latest-time');
 
-// ✨ NEW: Filter elements
+// Filter elements
 const deviceFilterSelect = document.getElementById('device-filter');
 const recordsPerPageSelect = document.getElementById('records-per-page');
 const chartDeviceSelect = document.getElementById('chart-device-select');
@@ -28,16 +29,16 @@ const chartLimitSelect = document.getElementById('chart-limit-select');
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    fetchOverviewStats();
+    fetchOverviewStats(); // Fetch overview statistics
     fetchDevicesList(); // Fetch devices for filters
-    fetchLogs(currentPage);
-    setupRealtimeUpdates();
+    fetchLogs(currentPage); // Fetch initial logs
+    setupRealtimeUpdates(); // Setup SSE for real-time updates
     setupFilterListeners(); // Setup filter event listeners
     
     // Auto-refresh every 30 seconds (backup if SSE fails)
     setInterval(() => {
         fetchOverviewStats();
-    }, 30000);
+    }, 300000); // changed to auto refresh every 5 minutes
 });
 
 // Setup filter event listeners
@@ -197,7 +198,7 @@ function isMobileDevice() {
     return window.innerWidth <= 768;
 }
 
-// Render chart using Chart.js
+// Render 2 separate charts (temperature and humidity)
 function renderChart(chartData, deviceId) {
     document.getElementById('chart-loading').classList.add('d-none');
     document.getElementById('chart-empty').classList.add('d-none');
@@ -216,7 +217,7 @@ function renderChart(chartData, deviceId) {
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
-            }).replace(',', '\n'); // ✅ Line break for mobile
+            }).replace(',', '\n');
         }
         
         return date.toLocaleString('en-US', {
@@ -230,47 +231,37 @@ function renderChart(chartData, deviceId) {
     const temperatures = chartData.map(item => item.temperature);
     const humidities = chartData.map(item => item.humidity);
     
-    // Destroy existing chart
-    if (sensorChart) {
-        sensorChart.destroy();
+    // Destroy existing charts
+    if (temperatureChart) {
+        temperatureChart.destroy();
+    }
+    if (humidityChart) {
+        humidityChart.destroy();
     }
     
-    // Create new chart
-    const ctx = document.getElementById('sensorChart').getContext('2d');
-    sensorChart = new Chart(ctx, {
+    // ===================================
+    // 🌡️ TEMPERATURE CHART
+    // ===================================
+    const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+    temperatureChart = new Chart(tempCtx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [
-                {
-                    label: 'Temperature (°C)',
-                    data: temperatures,
-                    borderColor: 'rgb(255, 99, 132)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                    borderWidth: isMobile ? 1.5 : 2, // ✅ Thinner on mobile
-                    tension: 0.4,
-                    fill: true,
-                    yAxisID: 'y',
-                    pointRadius: isMobile ? 2 : 3, // ✅ Smaller points on mobile
-                    pointHoverRadius: 5
-                },
-                {
-                    label: 'Humidity (%)',
-                    data: humidities,
-                    borderColor: 'rgb(54, 162, 235)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                    borderWidth: isMobile ? 1.5 : 2,
-                    tension: 0.4,
-                    fill: true,
-                    yAxisID: 'y1',
-                    pointRadius: isMobile ? 2 : 3,
-                    pointHoverRadius: 5
-                }
-            ]
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: temperatures,
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                borderWidth: isMobile ? 1.5 : 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: isMobile ? 2 : 3,
+                pointHoverRadius: 5
+            }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // ✅ CRITICAL for responsive height
+            maintainAspectRatio: false,
             interaction: {
                 mode: 'index',
                 intersect: false
@@ -278,14 +269,14 @@ function renderChart(chartData, deviceId) {
             plugins: {
                 title: {
                     display: true,
-                    text: `Device: ${deviceId}`,
+                    text: `Temperature - Device: ${deviceId}`,
                     font: {
-                        size: isMobile ? 14 : 16,
+                        size: isMobile ? 13 : 15,
                         weight: 'bold'
                     },
                     padding: {
-                        top: 10,
-                        bottom: isMobile ? 15 : 20
+                        top: 8,
+                        bottom: isMobile ? 10 : 15
                     }
                 },
                 legend: {
@@ -293,23 +284,16 @@ function renderChart(chartData, deviceId) {
                     position: 'top',
                     labels: {
                         boxWidth: isMobile ? 10 : 12,
-                        padding: isMobile ? 10 : 15,
+                        padding: isMobile ? 8 : 12,
                         font: {
-                            size: isMobile ? 10 : 12
+                            size: isMobile ? 9 : 11
                         }
                     }
                 },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(2);
-                            }
-                            return label;
+                            return `Temp: ${context.parsed.y.toFixed(2)}°C`;
                         }
                     }
                 }
@@ -318,10 +302,10 @@ function renderChart(chartData, deviceId) {
                 x: {
                     display: true,
                     title: {
-                        display: !isMobile, // ✅ Hide on mobile to save space
+                        display: !isMobile,
                         text: 'Time',
                         font: {
-                            size: 12,
+                            size: 11,
                             weight: 'bold'
                         }
                     },
@@ -329,10 +313,10 @@ function renderChart(chartData, deviceId) {
                         maxRotation: isMobile ? 45 : 45,
                         minRotation: isMobile ? 45 : 30,
                         font: {
-                            size: isMobile ? 8 : 10
+                            size: isMobile ? 7 : 9
                         },
                         autoSkip: true,
-                        maxTicksLimit: isMobile ? 6 : 10 // ✅ Fewer ticks on mobile
+                        maxTicksLimit: isMobile ? 6 : 10
                     },
                     grid: {
                         display: true,
@@ -342,47 +326,133 @@ function renderChart(chartData, deviceId) {
                 y: {
                     type: 'linear',
                     display: true,
-                    position: 'left',
                     title: {
-                        display: !isMobile, // ✅ Hide on mobile
-                        text: 'Temp (°C)',
+                        display: !isMobile,
+                        text: 'Temperature (°C)',
                         color: 'rgb(255, 99, 132)',
                         font: {
-                            size: 11,
+                            size: 10,
                             weight: 'bold'
                         }
                     },
                     ticks: {
                         color: 'rgb(255, 99, 132)',
                         font: {
-                            size: isMobile ? 9 : 10
+                            size: isMobile ? 8 : 9
                         }
                     },
                     grid: {
                         color: 'rgba(255, 99, 132, 0.1)'
                     }
-                },
-                y1: {
-                    type: 'linear',
+                }
+            }
+        }
+    });
+    
+    // ===================================
+    // 💧 HUMIDITY CHART
+    // ===================================
+    const humCtx = document.getElementById('humidityChart').getContext('2d');
+    humidityChart = new Chart(humCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Humidity (%)',
+                data: humidities,
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                borderWidth: isMobile ? 1.5 : 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: isMobile ? 2 : 3,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                title: {
                     display: true,
-                    position: 'right',
+                    text: `Humidity - Device: ${deviceId}`,
+                    font: {
+                        size: isMobile ? 13 : 15,
+                        weight: 'bold'
+                    },
+                    padding: {
+                        top: 8,
+                        bottom: isMobile ? 10 : 15
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: isMobile ? 10 : 12,
+                        padding: isMobile ? 8 : 12,
+                        font: {
+                            size: isMobile ? 9 : 11
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Humidity: ${context.parsed.y.toFixed(2)}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
                     title: {
-                        display: !isMobile, // ✅ Hide on mobile
-                        text: 'Humidity (%)',
-                        color: 'rgb(54, 162, 235)',
+                        display: !isMobile,
+                        text: 'Time',
                         font: {
                             size: 11,
                             weight: 'bold'
                         }
                     },
                     ticks: {
+                        maxRotation: isMobile ? 45 : 45,
+                        minRotation: isMobile ? 45 : 30,
+                        font: {
+                            size: isMobile ? 7 : 9
+                        },
+                        autoSkip: true,
+                        maxTicksLimit: isMobile ? 6 : 10
+                    },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    title: {
+                        display: !isMobile,
+                        text: 'Humidity (%)',
                         color: 'rgb(54, 162, 235)',
                         font: {
-                            size: isMobile ? 9 : 10
+                            size: 10,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: 'rgb(54, 162, 235)',
+                        font: {
+                            size: isMobile ? 8 : 9
                         }
                     },
                     grid: {
-                        drawOnChartArea: false
+                        color: 'rgba(54, 162, 235, 0.1)'
                     }
                 }
             }
@@ -396,18 +466,22 @@ window.addEventListener('resize', function() {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         const currentDevice = chartDeviceSelect.value;
-        if (currentDevice && sensorChart) {
+        if (currentDevice && (temperatureChart || humidityChart)) {
             const limit = parseInt(chartLimitSelect.value);
             fetchChartData(currentDevice, limit);
         }
-    }, 300); // Debounce 300ms
+    }, 300);
 });
 
-// ✨ NEW: Clear chart
+// Clear chart
 function clearChart() {
-    if (sensorChart) {
-        sensorChart.destroy();
-        sensorChart = null;
+    if (temperatureChart) {
+        temperatureChart.destroy();
+        temperatureChart = null;
+    }
+    if (humidityChart) {
+        humidityChart.destroy();
+        humidityChart = null;
     }
     document.getElementById('chart-loading').classList.add('d-none');
     document.getElementById('chart-container').classList.add('d-none');
@@ -858,13 +932,16 @@ function formatDateTime(dateTimeStr) {
     }
 }
 
-// Cleanup on page unload
+// Cleanup both charts on page unload
 window.addEventListener('beforeunload', () => {
     if (eventSource) {
         eventSource.close();
     }
-    if (sensorChart) {
-        sensorChart.destroy();
+    if (temperatureChart) {
+        temperatureChart.destroy();
+    }
+    if (humidityChart) {
+        humidityChart.destroy();
     }
 });
 
@@ -877,5 +954,6 @@ window.debugLogs = {
     fetchOverviewStats,
     fetchChartData,
     eventSource,
-    sensorChart
+    temperatureChart,
+    humidityChart
 };
