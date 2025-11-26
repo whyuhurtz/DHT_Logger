@@ -673,80 +673,89 @@ footer {
 }
 
 /* ========================================== */
-/* CHART.JS STYLES (RESPONSIVE)              */
+/* INDIVIDUAL DEVICE CHARTS                  */
 /* ========================================== */
 
-#chart-container {
-    position: relative;
-    width: 100%; /* ✅ Full width */
+#charts-container {
+    width: 100%;
 }
 
-/* ✅ NEW: Individual chart wrapper */
-.chart-wrapper {
+.device-chart-card {
+    animation: slideIn 0.4s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.device-chart-card .card {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.device-chart-card .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.device-chart-card .card-header {
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.875rem 1rem;
+}
+
+.chart-wrapper-individual {
     position: relative;
     width: 100%;
-    height: 300px; /* ✅ Each chart height */
-    padding: 10px 0;
+    height: 280px; /* Individual chart height */
+    padding: 10px;
 }
 
-.chart-wrapper canvas {
+.chart-wrapper-individual canvas {
     width: 100% !important;
     height: 100% !important;
 }
 
-#chart-empty {
-    padding: 80px 20px;
-}
-
-#chart-loading {
-    padding: 80px 20px;
-}
-
-/* Desktop & Tablet (≥ 992px) - Taller charts */
+/* Desktop (≥ 992px) */
 @media (min-width: 992px) {
-    .chart-wrapper {
-        height: 350px;
+    .chart-wrapper-individual {
+        height: 320px;
     }
 }
 
 /* Tablet (768px - 991px) */
 @media (max-width: 991px) and (min-width: 768px) {
-    .chart-wrapper {
-        height: 280px;
+    .chart-wrapper-individual {
+        height: 260px;
     }
 }
 
-/* Mobile & Small Tablets (≤ 767px) */
+/* Mobile (≤ 767px) */
 @media (max-width: 767px) {
-    .chart-wrapper {
-        height: 220px; /* ✅ Shorter for mobile */
-        padding: 8px 0;
+    .chart-wrapper-individual {
+        height: 220px;
+        padding: 8px;
     }
     
-    /* Adjust chart padding on mobile */
-    .card-body {
-        padding: 1rem 0.75rem;
+    .device-chart-card .card-header {
+        font-size: 0.9rem;
+        padding: 0.75rem 0.875rem;
     }
 }
 
-/* Extra Small Devices (≤ 576px) */
+/* Extra Small (≤ 576px) */
 @media (max-width: 576px) {
-    .chart-wrapper {
+    .chart-wrapper-individual {
         height: 200px;
-        padding: 6px 0;
-    }
-}
-
-/* Extra Extra Small (≤ 375px - iPhone SE) */
-@media (max-width: 375px) {
-    .chart-wrapper {
-        height: 180px;
-    }
-}
-
-/* Landscape orientation on mobile */
-@media (max-width: 768px) and (orientation: landscape) {
-    .chart-wrapper {
-        height: 180px; /* ✅ Shorter in landscape */
+        padding: 6px;
     }
 }

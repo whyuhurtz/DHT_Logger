@@ -18,7 +18,8 @@ from src.models import (
   get_logs_by_mac,
   get_total_logs,
   get_device_chart_data,
-  get_all_devices
+  get_all_devices,
+  get_all_devices_chart_data
 )
 from src.mqtt import (
   mqtt_client,
@@ -290,6 +291,34 @@ async def get_device_chart(device_id: str, limit: int = 50):
     }
   except Exception as e:
     logger.error(f"Error fetching chart data: {e}")
+    return {"success": False, "error": str(e)}
+
+@app.get("/api/chart/all-devices", tags=["Chart"])
+async def get_all_devices_chart(metric: str = "temperature", limit: int = 50):
+  """
+  Get chart data for all devices for a specific metric
+  
+  Args:
+    metric: 'temperature' or 'humidity' (default: temperature)
+    limit: Number of latest readings per device (default: 50)
+  """
+  try:
+    if metric not in ['temperature', 'humidity']:
+      return {
+        "success": False,
+        "error": "Invalid metric. Must be 'temperature' or 'humidity'"
+      }
+    
+    data = await get_all_devices_chart_data(metric, limit)
+    
+    return {
+      "success": True,
+      "metric": metric,
+      "devices": list(data.keys()),
+      "data": data
+    }
+  except Exception as e:
+    logger.error(f"Error fetching all devices chart data: {e}")
     return {"success": False, "error": str(e)}
 
 # Custom 404 Handler

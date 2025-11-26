@@ -4,7 +4,7 @@
 
 **IoT Sensor Data Logger with Real-time Dashboard**
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/) [![EMQX](https://img.shields.io/badge/EMQX-00B388?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.emqx.com/) [![Version](https://img.shields.io/badge/version-0.1.2-blue?style=for-the-badge)](https://github.com/whyuhurtz/DHT_Logger/releases)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/) [![EMQX](https://img.shields.io/badge/EMQX-00B388?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.emqx.com/) [![Version](https://img.shields.io/badge/version-0.1.3-blue?style=for-the-badge)](https://github.com/whyuhurtz/DHT_Logger/releases)
 
 </div>
 
@@ -16,7 +16,7 @@
 
 **DHT Logger** is an IoT application that collects temperature and humidity data from **ESP32 DHT22 sensors** via **MQTT protocol**, stores the data in a **MySQL database**, and displays it in a **real-time web dashboard** powered by **FastAPI** and **Bootstrap 5**.
 
-> **Note:** The ESP32 device will send sensor data every **30 seconds** to the MQTT broker (EMQX).
+> **Note:** The ESP32 device will send sensor data every **1/2 hour** to the MQTT broker (EMQX).
 
 ---
 

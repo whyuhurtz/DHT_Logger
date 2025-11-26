@@ -3,9 +3,24 @@ let currentPage = 1;
 let recordsPerPage = 10;
 let selectedDeviceFilter = '';
 let eventSource = null;
-let temperatureChart = null;
-let humidityChart = null;
-let selectedChartDevice = '';
+let deviceCharts = {}; // Store multiple charts
+let selectedMetric = 'temperature';
+
+// Color palette for each devices
+const DEVICE_COLORS = [
+    { border: 'rgb(255, 99, 132)', bg: 'rgba(255, 99, 132, 0.1)', name: 'Red' },           // 1
+    { border: 'rgb(54, 162, 235)', bg: 'rgba(54, 162, 235, 0.1)', name: 'Blue' },          // 2
+    { border: 'rgb(75, 192, 192)', bg: 'rgba(75, 192, 192, 0.1)', name: 'Teal' },          // 3
+    { border: 'rgb(255, 206, 86)', bg: 'rgba(255, 206, 86, 0.1)', name: 'Yellow' },        // 4
+    { border: 'rgb(153, 102, 255)', bg: 'rgba(153, 102, 255, 0.1)', name: 'Purple' },      // 5
+    { border: 'rgb(255, 159, 64)', bg: 'rgba(255, 159, 64, 0.1)', name: 'Orange' },        // 6
+    { border: 'rgb(231, 76, 60)', bg: 'rgba(231, 76, 60, 0.1)', name: 'Crimson' },         // 7
+    { border: 'rgb(46, 204, 113)', bg: 'rgba(46, 204, 113, 0.1)', name: 'Emerald' },       // 8
+    { border: 'rgb(52, 152, 219)', bg: 'rgba(52, 152, 219, 0.1)', name: 'Sky Blue' },      // 9
+    { border: 'rgb(241, 196, 15)', bg: 'rgba(241, 196, 15, 0.1)', name: 'Gold' },          // 10
+    { border: 'rgb(155, 89, 182)', bg: 'rgba(155, 89, 182, 0.1)', name: 'Amethyst' },      // 11
+    { border: 'rgb(26, 188, 156)', bg: 'rgba(26, 188, 156, 0.1)', name: 'Turquoise' },     // 12
+];
 
 // DOM Elements
 const loadingDiv = document.getElementById('loading');
@@ -24,21 +39,21 @@ const latestTimeEl = document.getElementById('latest-time');
 // Filter elements
 const deviceFilterSelect = document.getElementById('device-filter');
 const recordsPerPageSelect = document.getElementById('records-per-page');
-const chartDeviceSelect = document.getElementById('chart-device-select');
+const chartMetricSelect = document.getElementById('chart-metric-select');
 const chartLimitSelect = document.getElementById('chart-limit-select');
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    fetchOverviewStats(); // Fetch overview statistics
-    fetchDevicesList(); // Fetch devices for filters
-    fetchLogs(currentPage); // Fetch initial logs
-    setupRealtimeUpdates(); // Setup SSE for real-time updates
-    setupFilterListeners(); // Setup filter event listeners
+    fetchOverviewStats();
+    fetchDevicesList();
+    fetchLogs(currentPage);
+    setupRealtimeUpdates();
+    setupFilterListeners();
     
-    // Auto-refresh every 30 seconds (backup if SSE fails)
+    // Auto-refresh every 5 minutes
     setInterval(() => {
         fetchOverviewStats();
-    }, 300000); // changed to auto refresh every 5 minutes
+    }, 300000);
 });
 
 // Setup filter event listeners
@@ -57,34 +72,51 @@ function setupFilterListeners() {
         fetchLogs(currentPage);
     });
     
-    // Chart device selection
-    chartDeviceSelect.addEventListener('change', function() {
-        const deviceId = this.value;
-        selectedChartDevice = deviceId; // ✅ SAVE globally
+    // Chart metric selection
+    chartMetricSelect.addEventListener('change', function() {
+        const metric = this.value;
+        selectedMetric = metric;
         
-        if (deviceId) {
-            const limit = parseInt(chartLimitSelect.value);
-            fetchChartData(deviceId, limit);
-        } else {
-            clearChart();
-        }
+        const limit = parseInt(chartLimitSelect.value);
+        fetchMultiDeviceChartData(metric, limit);
     });
     
     // Chart limit change
     chartLimitSelect.addEventListener('change', function() {
-        const deviceId = chartDeviceSelect.value;
-        if (deviceId) {
-            const limit = parseInt(this.value);
-            fetchChartData(deviceId, limit);
-        }
+        const metric = chartMetricSelect.value;
+        const limit = parseInt(this.value);
+        fetchMultiDeviceChartData(metric, limit);
     });
+    
+    let retryCount = 0;
+    const maxRetries = 5;
+    
+    const tryLoadChart = async () => {
+        try {
+            const response = await fetch('/api/chart/all-devices?metric=temperature&limit=50');
+            const result = await response.json();
+            
+            if (result.success && result.devices && result.devices.length > 0) {
+                fetchMultiDeviceChartData('temperature', 50);
+            } else if (retryCount < maxRetries - 1) {
+                retryCount++;
+                setTimeout(tryLoadChart, 2000);
+            }
+        } catch (error) {
+            console.error('Error loading initial chart:', error);
+            if (retryCount < maxRetries - 1) {
+                retryCount++;
+                setTimeout(tryLoadChart, 2000);
+            }
+        }
+    };
+    
+    setTimeout(tryLoadChart, 2000);
 }
 
-// Fetch devices list for filters
+// Fetch devices list for table filter only
 async function fetchDevicesList(retryCount = 0) {
     try {
-        console.log(`📡 Fetching devices list... (attempt ${retryCount + 1})`);
-        
         const response = await fetch('/api/devices');
         
         if (!response.ok) {
@@ -93,103 +125,41 @@ async function fetchDevicesList(retryCount = 0) {
         
         const data = await response.json();
         
-        console.log('📦 Devices API response:', data);
-        
         if (data.success && data.devices && data.devices.length > 0) {
-            // ✅ SAVE current selections BEFORE clearing
             const currentTableFilter = deviceFilterSelect.value;
-            const currentChartDevice = chartDeviceSelect.value;
             
-            // Clear existing options
             deviceFilterSelect.innerHTML = '';
-            chartDeviceSelect.innerHTML = '';
             
-            // Add default option
-            const defaultOption1 = document.createElement('option');
-            defaultOption1.value = '';
-            defaultOption1.textContent = 'All Devices';
-            deviceFilterSelect.appendChild(defaultOption1);
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'All Devices';
+            deviceFilterSelect.appendChild(defaultOption);
             
-            const defaultOption2 = document.createElement('option');
-            defaultOption2.value = '';
-            defaultOption2.textContent = '-- Select a device --';
-            chartDeviceSelect.appendChild(defaultOption2);
-            
-            // Populate device options
             data.devices.forEach(deviceId => {
-                // Table filter dropdown
-                const option1 = document.createElement('option');
-                option1.value = deviceId;
-                option1.textContent = deviceId;
-                deviceFilterSelect.appendChild(option1);
-                
-                // Chart device dropdown
-                const option2 = document.createElement('option');
-                option2.value = deviceId;
-                option2.textContent = deviceId;
-                chartDeviceSelect.appendChild(option2);
-                
-                console.log(`✅ Added device: ${deviceId}`);
+                const option = document.createElement('option');
+                option.value = deviceId;
+                option.textContent = deviceId;
+                deviceFilterSelect.appendChild(option);
             });
             
-            // ✅ RESTORE selections after populating
             if (currentTableFilter && data.devices.includes(currentTableFilter)) {
                 deviceFilterSelect.value = currentTableFilter;
             }
             
-            if (currentChartDevice && data.devices.includes(currentChartDevice)) {
-                chartDeviceSelect.value = currentChartDevice;
-            }
-            
-            console.log(`✅ Successfully loaded ${data.devices.length} device(s)`);
-            console.log('📋 Restored table filter:', deviceFilterSelect.value);
-            console.log('📋 Restored chart device:', chartDeviceSelect.value);
-            
         } else if (data.success && (!data.devices || data.devices.length === 0)) {
-            console.warn('⚠️ No devices found in database yet');
             deviceFilterSelect.innerHTML = '<option value="">No devices found</option>';
-            chartDeviceSelect.innerHTML = '<option value="">No devices found</option>';
-        } else {
-            console.error('❌ API returned error:', data);
         }
         
     } catch (error) {
-        console.error('❌ Error fetching devices:', error);
+        console.error('Error fetching devices:', error);
         
         if (retryCount < 3) {
-            console.log(`🔄 Retrying in 2 seconds... (${retryCount + 1}/3)`);
             setTimeout(() => {
                 fetchDevicesList(retryCount + 1);
             }, 2000);
         } else {
-            console.error('❌ Failed to fetch devices after 3 attempts');
             deviceFilterSelect.innerHTML = '<option value="">Error loading devices</option>';
-            chartDeviceSelect.innerHTML = '<option value="">Error loading devices</option>';
         }
-    }
-}
-
-// Fetch chart data
-async function fetchChartData(deviceId, limit = 50) {
-    try {
-        // Show loading
-        document.getElementById('chart-loading').classList.remove('d-none');
-        document.getElementById('chart-empty').classList.add('d-none');
-        document.getElementById('chart-container').classList.add('d-none');
-        
-        const response = await fetch(`/api/chart/device/${deviceId}?limit=${limit}`);
-        const data = await response.json();
-        
-        if (data.success && data.data.length > 0) {
-            renderChart(data.data, deviceId);
-        } else {
-            clearChart();
-            showChartEmpty('No data available for this device');
-        }
-    } catch (error) {
-        console.error('Error fetching chart data:', error);
-        clearChart();
-        showChartEmpty('Error loading chart data');
     }
 }
 
@@ -198,300 +168,244 @@ function isMobileDevice() {
     return window.innerWidth <= 768;
 }
 
-// Render 2 separate charts (temperature and humidity)
-function renderChart(chartData, deviceId) {
-    document.getElementById('chart-loading').classList.add('d-none');
-    document.getElementById('chart-empty').classList.add('d-none');
-    document.getElementById('chart-container').classList.remove('d-none');
-    
-    const isMobile = isMobileDevice();
-    
-    // Prepare data
-    const labels = chartData.map(item => {
-        const date = new Date(item.datetime);
-        
-        // ✅ Shorter labels on mobile
-        if (isMobile) {
-            return date.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            }).replace(',', '\n');
-        }
-        
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    });
-    
-    const temperatures = chartData.map(item => item.temperature);
-    const humidities = chartData.map(item => item.humidity);
-    
-    // Destroy existing charts
-    if (temperatureChart) {
-        temperatureChart.destroy();
-    }
-    if (humidityChart) {
-        humidityChart.destroy();
-    }
-    
-    // ===================================
-    // 🌡️ TEMPERATURE CHART
-    // ===================================
-    const tempCtx = document.getElementById('temperatureChart').getContext('2d');
-    temperatureChart = new Chart(tempCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Temperature (°C)',
-                data: temperatures,
-                borderColor: 'rgb(255, 99, 132)',
-                backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                borderWidth: isMobile ? 1.5 : 2,
-                tension: 0.4,
-                fill: true,
-                pointRadius: isMobile ? 2 : 3,
-                pointHoverRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                title: {
-                    display: true,
-                    text: `Temperature - Device: ${deviceId}`,
-                    font: {
-                        size: isMobile ? 13 : 15,
-                        weight: 'bold'
-                    },
-                    padding: {
-                        top: 8,
-                        bottom: isMobile ? 10 : 15
-                    }
-                },
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        boxWidth: isMobile ? 10 : 12,
-                        padding: isMobile ? 8 : 12,
-                        font: {
-                            size: isMobile ? 9 : 11
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `Temp: ${context.parsed.y.toFixed(2)}°C`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    display: true,
-                    title: {
-                        display: !isMobile,
-                        text: 'Time',
-                        font: {
-                            size: 11,
-                            weight: 'bold'
-                        }
-                    },
-                    ticks: {
-                        maxRotation: isMobile ? 45 : 45,
-                        minRotation: isMobile ? 45 : 30,
-                        font: {
-                            size: isMobile ? 7 : 9
-                        },
-                        autoSkip: true,
-                        maxTicksLimit: isMobile ? 6 : 10
-                    },
-                    grid: {
-                        display: true,
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    }
-                },
-                y: {
-                    type: 'linear',
-                    display: true,
-                    title: {
-                        display: !isMobile,
-                        text: 'Temperature (°C)',
-                        color: 'rgb(255, 99, 132)',
-                        font: {
-                            size: 10,
-                            weight: 'bold'
-                        }
-                    },
-                    ticks: {
-                        color: 'rgb(255, 99, 132)',
-                        font: {
-                            size: isMobile ? 8 : 9
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(255, 99, 132, 0.1)'
-                    }
-                }
-            }
-        }
-    });
-    
-    // ===================================
-    // 💧 HUMIDITY CHART
-    // ===================================
-    const humCtx = document.getElementById('humidityChart').getContext('2d');
-    humidityChart = new Chart(humCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Humidity (%)',
-                data: humidities,
-                borderColor: 'rgb(54, 162, 235)',
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                borderWidth: isMobile ? 1.5 : 2,
-                tension: 0.4,
-                fill: true,
-                pointRadius: isMobile ? 2 : 3,
-                pointHoverRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                title: {
-                    display: true,
-                    text: `Humidity - Device: ${deviceId}`,
-                    font: {
-                        size: isMobile ? 13 : 15,
-                        weight: 'bold'
-                    },
-                    padding: {
-                        top: 8,
-                        bottom: isMobile ? 10 : 15
-                    }
-                },
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        boxWidth: isMobile ? 10 : 12,
-                        padding: isMobile ? 8 : 12,
-                        font: {
-                            size: isMobile ? 9 : 11
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `Humidity: ${context.parsed.y.toFixed(2)}%`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    display: true,
-                    title: {
-                        display: !isMobile,
-                        text: 'Time',
-                        font: {
-                            size: 11,
-                            weight: 'bold'
-                        }
-                    },
-                    ticks: {
-                        maxRotation: isMobile ? 45 : 45,
-                        minRotation: isMobile ? 45 : 30,
-                        font: {
-                            size: isMobile ? 7 : 9
-                        },
-                        autoSkip: true,
-                        maxTicksLimit: isMobile ? 6 : 10
-                    },
-                    grid: {
-                        display: true,
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    }
-                },
-                y: {
-                    type: 'linear',
-                    display: true,
-                    title: {
-                        display: !isMobile,
-                        text: 'Humidity (%)',
-                        color: 'rgb(54, 162, 235)',
-                        font: {
-                            size: 10,
-                            weight: 'bold'
-                        }
-                    },
-                    ticks: {
-                        color: 'rgb(54, 162, 235)',
-                        font: {
-                            size: isMobile ? 8 : 9
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(54, 162, 235, 0.1)'
-                    }
-                }
-            }
-        }
-    });
-}
-
 // Re-render chart on window resize
 let resizeTimeout;
 window.addEventListener('resize', function() {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-        const currentDevice = chartDeviceSelect.value;
-        if (currentDevice && (temperatureChart || humidityChart)) {
+        if (Object.keys(deviceCharts).length > 0) {
+            const metric = chartMetricSelect.value;
             const limit = parseInt(chartLimitSelect.value);
-            fetchChartData(currentDevice, limit);
+            fetchMultiDeviceChartData(metric, limit);
         }
     }, 300);
 });
 
-// Clear chart
-function clearChart() {
-    if (temperatureChart) {
-        temperatureChart.destroy();
-        temperatureChart = null;
+// Fetch multi-device chart data
+async function fetchMultiDeviceChartData(metric, limit = 50) {
+    try {
+        document.getElementById('chart-loading').classList.remove('d-none');
+        document.getElementById('chart-empty').classList.add('d-none');
+        document.getElementById('charts-container').classList.add('d-none');
+        
+        const response = await fetch(`/api/chart/all-devices?metric=${metric}&limit=${limit}`);
+        const result = await response.json();
+        
+        if (result.success && result.devices.length > 0) {
+            renderMultiDeviceCharts(result.data, metric);
+        } else {
+            clearCharts();
+            showChartEmpty('No data available');
+        }
+    } catch (error) {
+        console.error('Error fetching chart data:', error);
+        clearCharts();
+        showChartEmpty('Error loading chart data');
     }
-    if (humidityChart) {
-        humidityChart.destroy();
-        humidityChart = null;
+}
+
+// Render individual charts for each device
+function renderMultiDeviceCharts(devicesData, metric) {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js library not loaded!');
+        clearCharts();
+        showChartEmpty('Chart library failed to load. Please refresh the page.');
+        return;
     }
+    
     document.getElementById('chart-loading').classList.add('d-none');
-    document.getElementById('chart-container').classList.add('d-none');
+    document.getElementById('chart-empty').classList.add('d-none');
+    document.getElementById('charts-container').classList.remove('d-none');
+    
+    const isMobile = isMobileDevice();
+    const container = document.getElementById('charts-container');
+    
+    Object.keys(deviceCharts).forEach(deviceId => {
+        if (deviceCharts[deviceId]) {
+            deviceCharts[deviceId].destroy();
+        }
+    });
+    deviceCharts = {};
+    container.innerHTML = '';
+    
+    const deviceIds = Object.keys(devicesData);
+    const metricTitle = metric === 'temperature' ? 'Temperature' : 'Humidity';
+    const metricUnit = metric === 'temperature' ? '°C' : '%';
+    
+    const metricIcon = metric === 'temperature' 
+        ? 'bi bi-thermometer-half' 
+        : 'bi bi-droplet-half';
+    
+    deviceIds.forEach((deviceId, index) => {
+        const readings = devicesData[deviceId];
+        
+        if (readings.length === 0) {
+            return;
+        }
+        
+        const color = DEVICE_COLORS[index % DEVICE_COLORS.length];
+        
+        const chartCard = document.createElement('div');
+        chartCard.className = 'device-chart-card mb-3';
+        chartCard.innerHTML = `
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, ${color.border}, ${color.border}dd); color: #212529;">
+                    <div>
+                        <i class="${metricIcon}"></i>
+                        <strong>${metricTitle}: ${deviceId}</strong>
+                    </div>
+                    <span class="badge bg-light text-dark">${readings.length} readings</span>
+                </div>
+                <div class="card-body p-2">
+                    <div class="chart-wrapper-individual">
+                        <canvas id="chart-${deviceId.replace(/[^a-zA-Z0-9]/g, '_')}"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(chartCard);
+        
+        const labels = readings.map(item => {
+            const date = new Date(item.datetime);
+            
+            if (isMobile) {
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).replace(',', '\n');
+            }
+            
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        });
+        
+        const values = readings.map(item => item.value);
+        
+        const canvasId = `chart-${deviceId.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const canvasElement = document.getElementById(canvasId);
+        
+        if (!canvasElement) {
+            console.error(`Canvas element not found: ${canvasId}`);
+            return;
+        }
+        
+        const ctx = canvasElement.getContext('2d');
+        
+        try {
+            deviceCharts[deviceId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `${metricTitle} (${metricUnit})`,
+                        data: values,
+                        borderColor: color.border,
+                        backgroundColor: color.bg,
+                        borderWidth: isMobile ? 2 : 2.5,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: isMobile ? 2 : 3,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: color.border,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: isMobile ? 11 : 13
+                            },
+                            bodyFont: {
+                                size: isMobile ? 10 : 12
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y.toFixed(2);
+                                    return `${metricTitle}: ${value}${metricUnit}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                maxRotation: isMobile ? 45 : 30,
+                                minRotation: isMobile ? 45 : 30,
+                                font: {
+                                    size: isMobile ? 8 : 10
+                                },
+                                autoSkip: true,
+                                maxTicksLimit: isMobile ? 6 : 10
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: isMobile ? 9 : 11
+                                },
+                                callback: function(value) {
+                                    return value.toFixed(1) + metricUnit;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error(`Failed to create chart for ${deviceId}:`, error);
+        }
+    });
+}
+
+// Clear all charts
+function clearCharts() {
+    Object.keys(deviceCharts).forEach(deviceId => {
+        if (deviceCharts[deviceId]) {
+            deviceCharts[deviceId].destroy();
+        }
+    });
+    deviceCharts = {};
+    
+    document.getElementById('chart-loading').classList.add('d-none');
+    document.getElementById('charts-container').classList.add('d-none');
     document.getElementById('chart-empty').classList.remove('d-none');
 }
 
 // Show chart empty state
-function showChartEmpty(message = 'Select a device to view the chart') {
+function showChartEmpty(message = 'Select a metric to view device charts') {
     document.getElementById('chart-loading').classList.add('d-none');
-    document.getElementById('chart-container').classList.add('d-none');
+    document.getElementById('charts-container').classList.add('d-none');
     const emptyDiv = document.getElementById('chart-empty');
     emptyDiv.innerHTML = `
         <i class="bi bi-graph-up fs-1"></i>
@@ -509,37 +423,27 @@ function setupRealtimeUpdates() {
     eventSource = new EventSource('/api/events/stream');
     
     eventSource.onopen = () => {
-        console.log('✅ SSE connection established');
         showConnectionStatus(true);
     };
     
     eventSource.onmessage = (event) => {
         try {
             const newLog = JSON.parse(event.data);
-            console.log('📨 New sensor data received:', newLog);
             
-            // Add new row to the top of the table (only on page 1 and matching filter)
             if (currentPage === 1) {
-                // Check if device matches filter
                 if (!selectedDeviceFilter || newLog.device_id === selectedDeviceFilter) {
                     addLogToTable(newLog);
                     updatePaginationAfterRealtimeData();
                 }
             }
             
-            // Show notification
             showNotification(newLog);
-            
-            // Update stats
             fetchOverviewStats();
             
-            // Update chart if device matches
-            if (chartDeviceSelect.value === newLog.device_id) {
-                const limit = parseInt(chartLimitSelect.value);
-                fetchChartData(newLog.device_id, limit);
-            }
+            const metric = chartMetricSelect.value;
+            const limit = parseInt(chartLimitSelect.value);
+            fetchMultiDeviceChartData(metric, limit);
             
-            // Refresh devices list (in case new device appears)
             fetchDevicesList();
             
         } catch (error) {
@@ -548,12 +452,10 @@ function setupRealtimeUpdates() {
     };
     
     eventSource.onerror = (error) => {
-        console.error('❌ SSE connection error:', error);
+        console.error('SSE connection error:', error);
         showConnectionStatus(false);
         
-        // Attempt to reconnect after 5 seconds
         setTimeout(() => {
-            console.log('🔄 Attempting to reconnect SSE...');
             setupRealtimeUpdates();
         }, 5000);
     };
@@ -564,15 +466,13 @@ function addLogToTable(log) {
     const tbody = tableBody;
     if (!tbody) return;
     
-    // Check if table is empty (showing "No data" message)
     const emptyRow = tbody.querySelector('td[colspan="6"]');
     if (emptyRow) {
         tbody.innerHTML = '';
     }
     
-    // Create new row
     const row = document.createElement('tr');
-    row.className = 'new-log'; // Add animation class
+    row.className = 'new-log';
     row.innerHTML = `
         <td><span class="badge bg-primary">${log.log_id}</span></td>
         <td><span class="badge device-badge">${log.device_id}</span></td>
@@ -591,15 +491,12 @@ function addLogToTable(log) {
         </td>
     `;
     
-    // Insert at the top
     tbody.insertBefore(row, tbody.firstChild);
     
-    // Remove highlight animation after 2 seconds
     setTimeout(() => {
         row.classList.remove('new-log');
     }, 2000);
     
-    // Keep only last N rows (prevent table from growing too large)
     const maxRows = recordsPerPage;
     while (tbody.children.length > maxRows) {
         tbody.removeChild(tbody.lastChild);
@@ -623,7 +520,6 @@ function showNotification(log) {
     `;
     document.body.appendChild(notification);
     
-    // Auto-remove after 4 seconds
     setTimeout(() => {
         notification.classList.add('fade-out');
         setTimeout(() => {
@@ -677,15 +573,11 @@ async function fetchOverviewStats() {
 // Fetch logs with pagination and filters
 async function fetchLogs(page) {
     try {
-        // Show loading
         showLoading();
         
-        // Build query params
         let url = `/api/logs?page=${page}&limit=${recordsPerPage}`;
         
-        // Add device filter if selected
         if (selectedDeviceFilter) {
-            // Use existing endpoint for device-specific logs
             url = `/api/logs/device/${selectedDeviceFilter}?limit=${recordsPerPage * page}`;
             
             const response = await fetch(url);
@@ -694,7 +586,6 @@ async function fetchLogs(page) {
             if (data.success) {
                 hideLoading();
                 
-                // Calculate pagination manually for device filter
                 const allLogs = data.data;
                 const total = allLogs.length;
                 const totalPages = Math.ceil(total / recordsPerPage);
@@ -708,7 +599,6 @@ async function fetchLogs(page) {
                 showError(data.error || 'Failed to fetch data');
             }
         } else {
-            // Use default paginated endpoint
             const response = await fetch(url);
             const data = await response.json();
             
@@ -773,7 +663,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
         return;
     }
     
-    // Previous button
     const prevLi = document.createElement('li');
     prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
     prevLi.innerHTML = `
@@ -783,7 +672,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
     `;
     paginationContainer.appendChild(prevLi);
     
-    // Page numbers
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
@@ -792,7 +680,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
     
-    // First page
     if (startPage > 1) {
         const firstLi = document.createElement('li');
         firstLi.className = 'page-item';
@@ -807,7 +694,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
         }
     }
     
-    // Page numbers
     for (let i = startPage; i <= endPage; i++) {
         const li = document.createElement('li');
         li.className = `page-item ${i === currentPage ? 'active' : ''}`;
@@ -815,7 +701,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
         paginationContainer.appendChild(li);
     }
     
-    // Last page
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
             const dotsLi = document.createElement('li');
@@ -830,7 +715,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
         paginationContainer.appendChild(lastLi);
     }
     
-    // Next button
     const nextLi = document.createElement('li');
     nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
     nextLi.innerHTML = `
@@ -840,7 +724,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
     `;
     paginationContainer.appendChild(nextLi);
     
-    // Update info
     const startRecord = (currentPage - 1) * recordsPerPage + 1;
     const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
     paginationInfo.textContent = `Showing ${startRecord}-${endRecord} of ${totalRecords} records`;
@@ -849,7 +732,6 @@ function renderPagination(currentPage, totalPages, totalRecords) {
 // Update pagination after realtime data
 async function updatePaginationAfterRealtimeData() {
     try {
-        // Fetch updated pagination info WITHOUT reloading table
         let url = `/api/logs?page=${currentPage}&limit=${recordsPerPage}`;
         
         if (selectedDeviceFilter) {
@@ -860,7 +742,6 @@ async function updatePaginationAfterRealtimeData() {
         const data = await response.json();
         
         if (data.success) {
-            // Only update pagination, don't touch the table
             if (selectedDeviceFilter) {
                 const total = data.data.length;
                 const totalPages = Math.ceil(total / recordsPerPage);
@@ -909,12 +790,10 @@ function formatDateTime(dateTimeStr) {
     try {
         const date = new Date(dateTimeStr);
         
-        // Check if valid date
         if (isNaN(date.getTime())) {
-            return dateTimeStr; // Return original if can't parse
+            return dateTimeStr;
         }
         
-        // Format: "Nov 1, 2025 14:35:22"
         const options = {
             year: 'numeric',
             month: 'short',
@@ -932,28 +811,23 @@ function formatDateTime(dateTimeStr) {
     }
 }
 
-// Cleanup both charts on page unload
+// Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     if (eventSource) {
         eventSource.close();
     }
-    if (temperatureChart) {
-        temperatureChart.destroy();
-    }
-    if (humidityChart) {
-        humidityChart.destroy();
-    }
+    clearCharts();
 });
 
-// Export for debugging (optional)
+/* Export for debugging
 window.debugLogs = {
     currentPage,
     recordsPerPage,
     selectedDeviceFilter,
+    deviceCharts,
     fetchLogs,
     fetchOverviewStats,
-    fetchChartData,
-    eventSource,
-    temperatureChart,
-    humidityChart
+    fetchMultiDeviceChartData,
+    eventSource
 };
+*/

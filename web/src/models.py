@@ -222,3 +222,45 @@ async def get_all_devices():
     await cursor.execute(query)
     results = await cursor.fetchall()
     return [row['device_id'] for row in results]
+
+# v0.1.3: Get all devices chart data for a specific metric
+async def get_all_devices_chart_data(metric: str, limit: int = 50):
+  """
+  Get chart data for all devices for a specific metric
+  
+  Args:
+    metric: 'temperature' or 'humidity'
+    limit: Number of latest readings per device
+  
+  Returns:
+    Dict with device_id as key, and list of readings as value
+  """
+  if metric not in ['temperature', 'humidity']:
+    raise ValueError("Metric must be 'temperature' or 'humidity'")
+  
+  # Get all devices
+  devices = await get_all_devices()
+  
+  result = {}
+  
+  for device_id in devices:
+    query = f"""
+    SELECT 
+      {metric} as value,
+      timestamp,
+      DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:%%i:%%s') as datetime,
+      UNIX_TIMESTAMP(timestamp) as unix_timestamp
+    FROM sensor_data 
+    WHERE device_id = %s
+    ORDER BY timestamp DESC
+    LIMIT %s
+    """
+    
+    async with db.get_cursor() as cursor:
+      await cursor.execute(query, (device_id, limit))
+      readings = await cursor.fetchall()
+      
+      # Reverse to get chronological order (oldest first)
+      result[device_id] = list(reversed(readings))
+  
+  return result
