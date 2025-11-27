@@ -1,6 +1,6 @@
 """
 DHT Logger Setup Script
-Version: 0.1.3
+Version: 0.1.4
 
 Usage:
   python setup.py --deploy docker    # Deploy using Docker Compose
@@ -331,7 +331,7 @@ def clean_docker():
   # Remove Docker image
   print_info("🗑️ Removing Docker image...")
   success2 = run_command(
-    ["docker", "image", "rm", "-f", "fastapi_dht:v0.0.1"],
+    ["docker", "image", "rm", "-f", "fastapi_dht:v0.1.4"],
     cwd=str(web_dir)
   )
   
@@ -348,7 +348,7 @@ def clean_docker():
 
 def print_usage():
   """Print usage instructions"""
-  print(f"\n{Colors.HEADER}{Colors.BOLD}DHT Logger Setup Script v0.0.1{Colors.ENDC}")
+  print(f"\n{Colors.HEADER}{Colors.BOLD}DHT Logger Setup Script v0.1.4{Colors.ENDC}")
   print(f"{Colors.BOLD}Usage:{Colors.ENDC}")
   print(f"  python setup.py --deploy docker    # Deploy using Docker Compose")
   print(f"  python setup.py --deploy manual    # Deploy manually (venv + uvicorn)")

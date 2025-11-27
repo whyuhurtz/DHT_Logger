@@ -240,7 +240,7 @@ async def get_overview_stats():
       result = await cursor.fetchone()
       unique_devices = result['unique_devices']
     
-    # ✅ UPDATED: No FROM_UNIXTIME needed
+    # No FROM_UNIXTIME needed
     query_latest = """
     SELECT 
       MAX(timestamp) as latest_time,
@@ -320,6 +320,80 @@ async def get_all_devices_chart(metric: str = "temperature", limit: int = 50):
   except Exception as e:
     logger.error(f"Error fetching all devices chart data: {e}")
     return {"success": False, "error": str(e)}
+
+# v0.1.4: New endpoint for fetching device data by time range
+@app.get("/api/chart/range/{device_id}", tags=["Chart"])
+async def get_device_chart_by_range(device_id: str, range: str = "1d"):
+    """
+    Get device data by time range
+    
+    Args:
+        device_id: Device ID
+        range: Time range (15d, 7d, 1d, 1h, live)
+    
+    Returns:
+        Current value + historical data
+    """
+    try:
+        # Calculate time range in minutes
+        range_mapping = {
+            "15d": 21600,   # 15 days in minutes
+            "7d": 10080,    # 7 days
+            "1d": 1440,     # 1 day
+            "1h": 60,       # 1 hour
+            "live": 30      # Last 30 minutes
+        }
+        
+        minutes = range_mapping.get(range, 1440)
+        
+        query = f"""
+        SELECT 
+            temperature,
+            humidity,
+            timestamp,
+            DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:%%i:%%s') as datetime
+        FROM sensor_data 
+        WHERE device_id = %s
+        AND timestamp >= DATE_SUB(NOW(), INTERVAL {minutes} MINUTE)
+        ORDER BY timestamp ASC
+        """
+        
+        async with db.get_cursor() as cursor:
+            await cursor.execute(query, (device_id,))
+            history = await cursor.fetchall()
+        
+        # Get current (latest) value
+        query_current = """
+        SELECT temperature, humidity
+        FROM sensor_data 
+        WHERE device_id = %s
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+        
+        async with db.get_cursor() as cursor:
+            await cursor.execute(query_current, (device_id,))
+            current = await cursor.fetchone()
+        
+        if not current:
+            return {
+                "success": False,
+                "error": "No data found for this device"
+            }
+        
+        return {
+            "success": True,
+            "device_id": device_id,
+            "range": range,
+            "current": {
+                "temperature": current['temperature'],
+                "humidity": current['humidity']
+            },
+            "history": history
+        }
+    except Exception as e:
+        logger.error(f"Error fetching range data: {e}")
+        return {"success": False, "error": str(e)}
 
 # Custom 404 Handler
 @app.exception_handler(404)

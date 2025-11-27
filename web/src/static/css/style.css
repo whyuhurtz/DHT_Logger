@@ -1,761 +1,279 @@
-/* Global Styles */
+/* SCADA Dashboard Styles - Light Theme */
+
 :root {
-    --primary-color: #0d6efd;
-    --secondary-color: #6c757d;
-    --success-color: #198754;
-    --info-color: #0dcaf0;
-    --warning-color: #ffc107;
-    --danger-color: #dc3545;
+    --scada-bg: #f0f2f5;
+    --scada-panel: #ffffff;
+    --scada-border: #d1d5db;
+    --scada-text: #1f2937;
+    --scada-accent: #1e40af;
+    --temp-color: #ff6384;
+    --humi-color: #36a2eb;
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f9fa;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.container-fluid {
-    flex: 1;
-}
-
-/* Navbar Styling */
-.navbar-brand {
-    font-weight: 600;
-    font-size: 1.5rem;
-}
-
-.navbar-brand i {
-    margin-right: 8px;
-}
-
-/* Stats Cards */
-.card {
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease-in-out;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.card.bg-success,
-.card.bg-info,
-.card.bg-warning {
-    border: none;
-}
-
-/* Table Styling */
-.table-responsive {
-    border-radius: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-}
-
-.table {
-    margin-bottom: 0;
-}
-
-.table thead {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background-color: #212529; /* Ensure dark background stays visible */
-}
-
-.table tbody tr {
-    transition: background-color 0.2s ease;
-}
-
-.table tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.1);
-}
-
-/* Pagination */
-.pagination {
-    margin-top: 20px;
-}
-
-.pagination .page-link {
-    color: var(--primary-color);
-    border-radius: 5px;
-    margin: 0 3px;
-}
-
-.pagination .page-item.active .page-link {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-    color: white; /* ← FIX: Make text white on active page */
-}
-
-.pagination .page-link:hover {
-    background-color: rgba(13, 110, 253, 0.1);
-}
-
-/* Loading Spinner */
-#loading {
-    animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* Alert Styling */
-.alert {
-    border-radius: 8px;
-    animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
-    from {
-        transform: translateY(-20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-/* Footer */
-footer {
-    margin-top: auto;
-    border-top: 1px solid #dee2e6;
-}
-
-/* Badge for Status */
-.badge-online {
-    background-color: var(--success-color);
-}
-
-.badge-offline {
-    background-color: var(--danger-color);
-}
-
-/* Utility Classes */
-.text-truncate-custom {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Card Header Icons */
-.card-header i {
-    margin-right: 8px;
-}
-
-/* 404 Page Styling */
-.error-icon {
-    animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-    0%, 20%, 50%, 80%, 100% {
-        transform: translateY(0);
-    }
-    40% {
-        transform: translateY(-20px);
-    }
-    60% {
-        transform: translateY(-10px);
-    }
-}
-
-/* ========================================== */
-/* REALTIME UPDATE STYLES (SSE)              */
-/* ========================================== */
-
-/* New log highlight animation */
-@keyframes highlight {
-    0% {
-        background-color: #d4edda;
-        transform: scale(1.02);
-        box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
-    }
-    100% {
-        background-color: transparent;
-        transform: scale(1);
-        box-shadow: none;
-    }
-}
-
-.new-log {
-    animation: highlight 3s ease-out;
-}
-
-/* Device badge styling */
-.device-badge {
-    background-color: #6c757d;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: 600;
-    font-size: 0.85rem;
-}
-
-/* Temperature and humidity values */
-.temp-value,
-.humidity-value {
-    font-weight: 600;
-}
-
-/* Notification Toast */
-.notification {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+* {
+    margin: 0;
     padding: 0;
-    border-radius: 10px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-    z-index: 9999;
-    min-width: 300px;
-    max-width: 350px;
-    animation: slideInRight 0.4s ease-out;
+    box-sizing: border-box;
+}
+
+body.scada-body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background-color: var(--scada-bg);
+    color: var(--scada-text);
     overflow: hidden;
+    height: 100vh;
 }
 
-.notification-header {
-    background: rgba(0, 0, 0, 0.2);
-    padding: 12px 15px;
+/* ========================================== */
+/* DEVICE NAVBAR (Top)                       */
+/* ========================================== */
+
+.device-navbar {
+    background: var(--scada-panel);
+    border-bottom: 2px solid var(--scada-border);
+    height: 50px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    justify-content: space-between;
+    padding: 0 15px;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
-.notification-header i {
-    font-size: 1.2rem;
-    animation: bellRing 1s ease-in-out;
+.device-tabs {
+    display: flex;
+    gap: 10px;
 }
 
-.notification-body {
-    padding: 15px;
+.device-tab {
+    background: var(--scada-bg);
+    border: 1px solid var(--scada-border);
+    color: var(--scada-text);
+    padding: 8px 20px;
+    border-radius: 5px;
+    cursor: pointer;
     font-size: 0.9rem;
-}
-
-.notification-body div {
-    margin-bottom: 6px;
-}
-
-.notification-body div:last-child {
-    margin-bottom: 0;
-}
-
-.notification.fade-out {
-    animation: slideOutRight 0.3s ease-out forwards;
-}
-
-@keyframes slideInRight {
-    from {
-        transform: translateX(400px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-@keyframes slideOutRight {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(400px);
-        opacity: 0;
-    }
-}
-
-@keyframes bellRing {
-    0%, 100% {
-        transform: rotate(0deg);
-    }
-    10%, 30%, 50%, 70% {
-        transform: rotate(-10deg);
-    }
-    20%, 40%, 60% {
-        transform: rotate(10deg);
-    }
-    80% {
-        transform: rotate(-5deg);
-    }
-    90% {
-        transform: rotate(5deg);
-    }
-}
-
-/* Connection Status Indicator */
-.connection-status {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 10px 15px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 9998;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    animation: fadeInUp 0.3s ease-out;
-}
-
-.connection-status.connected {
-    background-color: #28a745;
-    color: white;
-}
-
-.connection-status.disconnected {
-    background-color: #dc3545;
-    color: white;
-    animation: pulse 2s infinite;
-}
-
-.connection-status i {
-    font-size: 1rem;
-}
-
-@keyframes fadeInUp {
-    from {
-        transform: translateY(50px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.7;
-    }
-}
-
-/* Pulse effect for live indicator */
-.connection-status.connected::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 12px;
-    transform: translateY(-50%);
-    width: 8px;
-    height: 8px;
-    background-color: white;
-    border-radius: 50%;
-    animation: livePulse 1.5s ease-in-out infinite;
-}
-
-@keyframes livePulse {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
-    }
-    50% {
-        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
-    }
-}
-
-/* Smooth table row transitions */
-.table tbody tr {
+    white-space: nowrap;
     transition: all 0.3s ease;
 }
 
-/* Enhanced hover effect for table rows */
-.table tbody tr:hover {
-    background-color: rgba(13, 110, 253, 0.08);
-    transform: translateX(2px);
-}
-
-/* Badge animations */
-.badge {
-    transition: transform 0.2s ease;
-}
-
-.badge:hover {
+.device-tab:hover {
+    background: var(--scada-accent);
+    color: white;
     transform: scale(1.05);
 }
 
-/* ========================================== */
-/* RESPONSIVE DESIGN (MOBILE & TABLET)       */
-/* ========================================== */
-
-/* Tablet & Medium Devices (≤ 992px) */
-@media (max-width: 992px) {
-    .container-fluid {
-        padding-left: 15px;
-        padding-right: 15px;
-    }
-    
-    .card h2 {
-        font-size: 1.75rem;
-    }
-}
-
-/* Mobile & Small Tablets (≤ 768px) */
-@media (max-width: 768px) {
-    /* Navbar adjustments */
-    .navbar-brand {
-        font-size: 1.2rem;
-    }
-    
-    /* Container padding */
-    .container-fluid {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-    
-    /* Stats cards - Add gap between cards */
-    .row.g-3 {
-        gap: 0;
-    }
-    
-    .row.g-3 > [class*="col-"] {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-        margin-bottom: 0.75rem;
-    }
-    
-    .row.g-3 > [class*="col-"]:last-child {
-        margin-bottom: 0;
-    }
-
-    /* Card size adjustments */
-    .card h2 {
-        font-size: 1.5rem;
-    }
-    
-    .card h6 {
-        font-size: 0.9rem;
-    }
-    
-    .card-body {
-        padding: 1rem;
-    }
-    
-    /* Card icons smaller */
-    .card .fs-1 {
-        font-size: 2.5rem !important;
-    }
-
-    /* Table responsive - horizontal scroll */
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin-left: -10px;
-        margin-right: -10px;
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-    
-    .table {
-        font-size: 0.8rem;
-        min-width: 800px; /* Force horizontal scroll */
-    }
-    
-    .table th,
-    .table td {
-        padding: 0.5rem 0.4rem;
-        white-space: nowrap;
-    }
-    
-    /* Compact badges */
-    .badge {
-        font-size: 0.7rem;
-        padding: 0.25rem 0.5rem;
-    }
-    
-    /* Smaller icons in table */
-    .table i {
-        font-size: 0.85rem;
-    }
-    
-    /* Pagination adjustments */
-    .pagination .page-link {
-        padding: 0.375rem 0.5rem;
-        font-size: 0.85rem;
-        margin: 0 2px;
-    }
-    
-    .pagination {
-        margin-top: 15px;
-    }
-    
-    /* Notification adjustments */
-    .notification {
-        top: 70px;
-        right: 10px;
-        left: 10px;
-        min-width: auto;
-        max-width: calc(100% - 20px);
-    }
-    
-    .notification-header {
-        padding: 10px 12px;
-        font-size: 0.9rem;
-    }
-    
-    .notification-body {
-        padding: 12px;
-        font-size: 0.85rem;
-    }
-    
-    /* Connection status */
-    .connection-status {
-        bottom: 15px;
-        right: 15px;
-        font-size: 0.75rem;
-        padding: 8px 12px;
-    }
-    
-    /* Footer text */
-    footer p {
-        font-size: 0.85rem;
-        padding: 0 10px;
-    }
-}
-
-/* Extra Small Devices (Phones, ≤ 576px) */
-@media (max-width: 576px) {
-    /* Further reduce table size */
-    .table {
-        font-size: 0.75rem;
-        min-width: 750px;
-    }
-    
-    .table th,
-    .table td {
-        padding: 0.4rem 0.3rem;
-    }
-    
-    /* Card adjustments */
-    .card h2 {
-        font-size: 1.3rem;
-    }
-    
-    .card h6 {
-        font-size: 0.85rem;
-    }
-    
-    .card-body {
-        padding: 0.875rem;
-    }
-    
-    /* Smaller card icons */
-    .card .fs-1 {
-        font-size: 2rem !important;
-    }
-    
-    /* Navbar */
-    .navbar-brand {
-        font-size: 1.1rem;
-    }
-    
-    /* Pagination - hide some numbers on very small screens */
-    .pagination .page-item:not(.active):not(:first-child):not(:last-child):not(.disabled) {
-        display: none;
-    }
-    
-    .pagination .page-item.active {
-        display: inline-block;
-    }
-    
-    /* Connection status - smaller */
-    .connection-status {
-        bottom: 10px;
-        right: 10px;
-        font-size: 0.7rem;
-        padding: 6px 10px;
-        gap: 6px;
-    }
-    
-    .connection-status.connected::before {
-        left: 8px;
-        width: 6px;
-        height: 6px;
-    }
-    
-    /* Notification - full width on very small screens */
-    .notification {
-        top: 60px;
-        right: 5px;
-        left: 5px;
-        max-width: calc(100% - 10px);
-    }
-}
-
-/* Extra Extra Small Devices (≤ 375px - iPhone SE, etc) */
-@media (max-width: 375px) {
-    .container-fluid {
-        padding-left: 8px;
-        padding-right: 8px;
-    }
-    
-    .table {
-        font-size: 0.7rem;
-        min-width: 700px;
-    }
-    
-    .card h2 {
-        font-size: 1.2rem;
-    }
-    
-    .card .fs-1 {
-        font-size: 1.75rem !important;
-    }
-    
-    .row.g-3 > [class*="col-"] {
-        padding-left: 0.25rem;
-        padding-right: 0.25rem;
-    }
-}
-
-/* Landscape orientation on mobile */
-@media (max-width: 768px) and (orientation: landscape) {
-    .navbar-brand {
-        font-size: 1rem;
-    }
-    
-    .card h2 {
-        font-size: 1.25rem;
-    }
-    
-    .card h6 {
-        font-size: 0.8rem;
-    }
-    
-    .card .fs-1 {
-        font-size: 2rem !important;
-    }
-    
-    .connection-status {
-        bottom: 10px;
-        right: 10px;
-        font-size: 0.7rem;
-        padding: 6px 10px;
-    }
-}
-
-/* Print styles (optional) */
-@media print {
-    .navbar,
-    .pagination,
-    .connection-status,
-    .notification,
-    footer {
-        display: none !important;
-    }
-    
-    .card {
-        box-shadow: none;
-        border: 1px solid #ddd;
-    }
-    
-    .table {
-        font-size: 10pt;
-    }
-}
-
-/* ========================================== */
-/* INDIVIDUAL DEVICE CHARTS                  */
-/* ========================================== */
-
-#charts-container {
-    width: 100%;
-}
-
-.device-chart-card {
-    animation: slideIn 0.4s ease-out;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.device-chart-card .card {
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.device-chart-card .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-.device-chart-card .card-header {
+.device-tab.active {
+    background: var(--scada-accent);
+    color: white;
     font-weight: 600;
-    font-size: 1rem;
-    padding: 0.875rem 1rem;
 }
 
-.chart-wrapper-individual {
-    position: relative;
-    width: 100%;
-    height: 280px; /* Individual chart height */
+.device-tab-loading {
+    color: var(--scada-accent);
+    font-style: italic;
+}
+
+/* ========================================== */
+/* WIFI INDICATOR (Top Right)                */
+/* ========================================== */
+
+.wifi-indicator {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.wifi-indicator.connected {
+    color: #28a745; /* ✅ Green */
+}
+
+.wifi-indicator.disconnected {
+    color: #dc3545; /* ❌ Red */
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ========================================== */
+/* MAIN SCADA CONTAINER                      */
+/* ========================================== */
+
+.scada-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: calc(100vh - 50px);
+    gap: 10px;
     padding: 10px;
 }
 
-.chart-wrapper-individual canvas {
+/* ========================================== */
+/* LEFT & RIGHT PANELS                       */
+/* ========================================== */
+
+.panel-left,
+.panel-right {
+    background: var(--scada-panel);
+    border: 2px solid var(--scada-border);
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.panel-header {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--scada-border);
+}
+
+.panel-left .panel-header {
+    color: var(--temp-color);
+}
+
+.panel-right .panel-header {
+    color: var(--humi-color);
+}
+
+.panel-header i {
+    margin-right: 8px;
+}
+
+/* ========================================== */
+/* GAUGE CONTAINER                           */
+/* ========================================== */
+
+.gauge-container {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.gauge-container canvas {
+    max-width: 250px;
+    max-height: 180px;
+}
+
+.gauge-value {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.panel-left .gauge-value {
+    color: var(--temp-color);
+}
+
+.panel-right .gauge-value {
+    color: var(--humi-color);
+}
+
+/* ========================================== */
+/* TIME RANGE SELECTOR                       */
+/* ========================================== */
+
+.time-selector {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.time-btn {
+    background: var(--scada-bg);
+    border: 1px solid var(--scada-border);
+    color: var(--scada-text);
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.time-btn:hover {
+    background: var(--scada-accent);
+    color: white;
+}
+
+.time-btn.active {
+    background: var(--scada-accent);
+    color: white;
+    font-weight: 600;
+}
+
+/* ========================================== */
+/* CHART CONTAINER                           */
+/* ========================================== */
+
+.chart-container {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    min-height: 0;
+}
+
+.chart-container canvas {
     width: 100% !important;
     height: 100% !important;
 }
 
-/* Desktop (≥ 992px) */
-@media (min-width: 992px) {
-    .chart-wrapper-individual {
-        height: 320px;
-    }
-}
+/* ========================================== */
+/* RESPONSIVE (Mobile)                       */
+/* ========================================== */
 
-/* Tablet (768px - 991px) */
-@media (max-width: 991px) and (min-width: 768px) {
-    .chart-wrapper-individual {
-        height: 260px;
-    }
-}
-
-/* Mobile (≤ 767px) */
-@media (max-width: 767px) {
-    .chart-wrapper-individual {
-        height: 220px;
-        padding: 8px;
+@media (max-width: 768px) {
+    .scada-container {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+        height: auto;
     }
     
-    .device-chart-card .card-header {
-        font-size: 0.9rem;
-        padding: 0.75rem 0.875rem;
+    body.scada-body {
+        overflow-y: auto;
     }
-}
-
-/* Extra Small (≤ 576px) */
-@media (max-width: 576px) {
-    .chart-wrapper-individual {
-        height: 200px;
-        padding: 6px;
+    
+    .gauge-container {
+        height: 130px;
+    }
+    
+    .gauge-value {
+        font-size: 1.3rem;
+    }
+    
+    .time-btn {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+    }
+    
+    .wifi-indicator {
+        position: fixed;
+        bottom: 15px;
+        right: 15px;
+        background: white;
+        border: 1px solid #1f2937;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 9999;
     }
 }
