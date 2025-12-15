@@ -321,79 +321,203 @@ async def get_all_devices_chart(metric: str = "temperature", limit: int = 50):
     logger.error(f"Error fetching all devices chart data: {e}")
     return {"success": False, "error": str(e)}
 
-# v0.1.4: New endpoint for fetching device data by time range
+# v0.1.5: New endpoint for fetching device data by time range
 @app.get("/api/chart/range/{device_id}", tags=["Chart"])
 async def get_device_chart_by_range(device_id: str, range: str = "1d"):
-    """
-    Get device data by time range
+  """
+  Get device data by time range
+  
+  Args:
+    device_id: Device ID
+    range: Time range (15d, 7d, 1d, 1h, 30m, live)
+  
+  Returns:
+    Current value + historical data (max 100 points)
+  """
+  try:
+    # Calculate time range in minutes
+    range_mapping = {
+      "15d": 21600,   # 15 days = 21,600 minutes
+      "7d": 10080,    # 7 days = 10,080 minutes
+      "1d": 1440,     # 1 day = 1,440 minutes
+      "1h": 60,       # 1 hour = 60 minutes
+      "30m": 30,      # 30 minutes
+      "live": 5       # Live = last 5 minutes (rolling)
+    }
     
-    Args:
-        device_id: Device ID
-        range: Time range (15d, 7d, 1d, 1h, live)
+    minutes = range_mapping.get(range, 1440)
     
-    Returns:
-        Current value + historical data
-    """
-    try:
-        # Calculate time range in minutes
-        range_mapping = {
-            "15d": 21600,   # 15 days in minutes
-            "7d": 10080,    # 7 days
-            "1d": 1440,     # 1 day
-            "1h": 60,       # 1 hour
-            "live": 30      # Last 30 minutes
-        }
-        
-        minutes = range_mapping.get(range, 1440)
-        
-        query = f"""
-        SELECT 
-            temperature,
-            humidity,
-            timestamp,
-            DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:%%i:%%s') as datetime
-        FROM sensor_data 
-        WHERE device_id = %s
-        AND timestamp >= DATE_SUB(NOW(), INTERVAL {minutes} MINUTE)
-        ORDER BY timestamp ASC
-        """
-        
-        async with db.get_cursor() as cursor:
-            await cursor.execute(query, (device_id,))
-            history = await cursor.fetchall()
-        
-        # Get current (latest) value
-        query_current = """
-        SELECT temperature, humidity
-        FROM sensor_data 
-        WHERE device_id = %s
-        ORDER BY timestamp DESC
-        LIMIT 1
-        """
-        
-        async with db.get_cursor() as cursor:
-            await cursor.execute(query_current, (device_id,))
-            current = await cursor.fetchone()
-        
-        if not current:
-            return {
-                "success": False,
-                "error": "No data found for this device"
-            }
-        
+    logger.info(f"📊 Fetching data for range: {range} ({minutes} minutes)")
+    
+    # Different logic for "live" vs historical ranges
+    if range == "live":
+      # Live: Rolling window from NOW
+      count_query = """
+      SELECT COUNT(*) as total
+      FROM sensor_data 
+      WHERE device_id = %s
+      AND timestamp >= DATE_SUB(NOW(), INTERVAL %s MINUTE)
+      """
+      
+      async with db.get_cursor() as cursor:
+          await cursor.execute(count_query, (device_id, minutes))
+          count_result = await cursor.fetchone()
+          total_records = count_result['total']
+      
+      logger.info(f"📊 Total records in range (Live): {total_records}")
+      
+      # Calculate sampling interval
+      target_points = 100
+      interval = max(1, total_records // target_points) if total_records > 0 else 1
+      
+      logger.info(f"📊 Sampling interval: {interval}, Expected points: ~{total_records // interval if total_records > 0 else 0}")
+      
+      # Query data (rolling window from NOW)
+      query = """
+      SELECT 
+          temperature,
+          humidity,
+          timestamp,
+          DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:%%i:%%s') as datetime
+      FROM (
+          SELECT 
+              temperature,
+              humidity,
+              timestamp,
+              ROW_NUMBER() OVER (ORDER BY timestamp ASC) as row_num
+          FROM sensor_data 
+          WHERE device_id = %s
+          AND timestamp >= DATE_SUB(NOW(), INTERVAL %s MINUTE)
+      ) AS numbered
+      WHERE MOD(row_num - 1, %s) = 0
+      ORDER BY timestamp ASC
+      """
+      
+      async with db.get_cursor() as cursor:
+          await cursor.execute(query, (device_id, minutes, interval))
+          history = await cursor.fetchall()
+      
+      # Calculate window for live
+      from datetime import datetime, timedelta
+      now = datetime.now()
+      window_start = now - timedelta(minutes=minutes)
+      window_end = now
+      
+    else:
+      # Historical ranges: Fixed window from FIRST timestamp
+      query_first = """
+      SELECT MIN(timestamp) as first_timestamp
+      FROM sensor_data 
+      WHERE device_id = %s
+      """
+      
+      async with db.get_cursor() as cursor:
+        await cursor.execute(query_first, (device_id,))
+        first_result = await cursor.fetchone()
+        first_timestamp = first_result['first_timestamp']
+      
+      if not first_timestamp:
         return {
-            "success": True,
-            "device_id": device_id,
-            "range": range,
-            "current": {
-                "temperature": current['temperature'],
-                "humidity": current['humidity']
-            },
-            "history": history
+          "success": False,
+          "error": "No data found for this device"
         }
-    except Exception as e:
-        logger.error(f"Error fetching range data: {e}")
-        return {"success": False, "error": str(e)}
+      
+      logger.info(f"📊 First data timestamp: {first_timestamp}")
+      
+      # Count total records in fixed time window
+      count_query = """
+      SELECT COUNT(*) as total
+      FROM sensor_data 
+      WHERE device_id = %s
+      AND timestamp >= %s
+      AND timestamp <= DATE_ADD(%s, INTERVAL %s MINUTE)
+      """
+      
+      async with db.get_cursor() as cursor:
+        await cursor.execute(count_query, (device_id, first_timestamp, first_timestamp, minutes))
+        count_result = await cursor.fetchone()
+        total_records = count_result['total']
+      
+      logger.info(f"📊 Total records in range ({range}): {total_records}")
+      
+      # Calculate sampling interval
+      target_points = 100
+      interval = max(1, total_records // target_points) if total_records > 0 else 1
+      
+      logger.info(f"📊 Sampling interval: {interval}, Expected points: ~{total_records // interval if total_records > 0 else 0}")
+      
+      # Query data (fixed window from first_timestamp)
+      query = """
+      SELECT 
+        temperature,
+        humidity,
+        timestamp,
+        DATE_FORMAT(timestamp, '%%Y-%%m-%%d %%H:%%i:%%s') as datetime
+      FROM (
+        SELECT 
+          temperature,
+          humidity,
+          timestamp,
+          ROW_NUMBER() OVER (ORDER BY timestamp ASC) as row_num
+        FROM sensor_data 
+        WHERE device_id = %s
+        AND timestamp >= %s
+        AND timestamp <= DATE_ADD(%s, INTERVAL %s MINUTE)
+      ) AS numbered
+      WHERE MOD(row_num - 1, %s) = 0
+      ORDER BY timestamp ASC
+      """
+      
+      async with db.get_cursor() as cursor:
+        await cursor.execute(query, (device_id, first_timestamp, first_timestamp, minutes, interval))
+        history = await cursor.fetchall()
+      
+      # Calculate window for historical ranges
+      from datetime import timedelta
+      window_start = first_timestamp
+      window_end = first_timestamp + timedelta(minutes=minutes)
+    
+    logger.info(f"✅ Returned {len(history)} data points")
+    
+    # Get current (latest) value
+    query_current = """
+    SELECT temperature, humidity, timestamp
+    FROM sensor_data 
+    WHERE device_id = %s
+    ORDER BY timestamp DESC
+    LIMIT 1
+    """
+    
+    async with db.get_cursor() as cursor:
+      await cursor.execute(query_current, (device_id,))
+      current = await cursor.fetchone()
+    
+    if not current:
+      return {
+        "success": False,
+        "error": "No data found for this device"
+      }
+    
+    return {
+      "success": True,
+      "device_id": device_id,
+      "range": range,
+      "range_minutes": minutes,
+      "window_start": window_start.strftime('%Y-%m-%d %H:%M:%S'),
+      "window_end": window_end.strftime('%Y-%m-%d %H:%M:%S'),
+      "total_records": total_records,
+      "sampled_points": len(history),
+      "sampling_interval": interval,
+      "current": {
+        "temperature": current['temperature'],
+        "humidity": current['humidity'],
+        "timestamp": str(current['timestamp'])
+      },
+      "history": history
+    }
+  except Exception as e:
+    logger.error(f"❌ Error fetching range data: {e}")
+    return {"success": False, "error": str(e)}
 
 # Custom 404 Handler
 @app.exception_handler(404)

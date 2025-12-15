@@ -42,7 +42,7 @@ async function fetchDevicesList() {
                 tabsContainer.appendChild(tab);
             });
             
-            // Auto-select first device
+            // Auto-select first device and fetch data immediately
             if (data.devices.length > 0) {
                 selectDevice(data.devices[0]);
             }
@@ -67,7 +67,7 @@ function selectDevice(deviceId) {
         tab.classList.toggle('active', tab.dataset.device === deviceId);
     });
     
-    // Fetch data for selected device
+    // Fetch data immediately when device is selected
     fetchDeviceData(deviceId, selectedRange);
 }
 
@@ -77,18 +77,66 @@ function selectDevice(deviceId) {
 
 async function fetchDeviceData(deviceId, range) {
     try {
-        const response = await fetch(`/api/chart/range/${deviceId}?range=${range}`);
+        console.log(`📊 Fetching ${deviceId} - Range: ${range}`);
+        
+        // Add cache-busting timestamp to prevent browser caching
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/chart/range/${deviceId}?range=${range}&_t=${timestamp}`, {
+            cache: 'no-cache', // ✅ Disable cache
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        });
         const data = await response.json();
         
         if (data.success) {
+            console.log(`✅ Received ${data.history.length} data points`);
+            console.log(`📊 Time window: ${data.window_start} → ${data.window_end}`);
             updateGauges(data.current);
             updateCharts(data.history);
         } else {
             console.error('❌ API error:', data.error);
+            // Show "No data" message on charts
+            showNoDataMessage();
         }
     } catch (error) {
         console.error('❌ Fetch error:', error);
+        showNoDataMessage();
     }
+}
+
+// ========================================
+// SHOW "NO DATA" MESSAGE
+// ========================================
+
+function showNoDataMessage() {
+    // Show default values
+    const tempCurrent = document.getElementById('temp-current');
+    const humiCurrent = document.getElementById('humi-current');
+    
+    if (tempCurrent) tempCurrent.textContent = '--';
+    if (humiCurrent) humiCurrent.textContent = '--';
+    
+    // Destroy existing charts
+    if (tempChart) {
+        tempChart.destroy();
+        tempChart = null;
+    }
+    if (humiChart) {
+        humiChart.destroy();
+        humiChart = null;
+    }
+    if (tempGauge) {
+        tempGauge.destroy();
+        tempGauge = null;
+    }
+    if (humiGauge) {
+        humiGauge.destroy();
+        humiGauge = null;
+    }
+    
+    console.warn('⚠️ No data available for this device yet');
 }
 
 // ========================================
@@ -220,8 +268,9 @@ function createLineChart(canvasId, labels, data, color, label) {
                 borderWidth: 2,
                 tension: 0.4,
                 fill: true,
-                pointRadius: 2,
-                pointHoverRadius: 5
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHitRadius: 10
             }]
         },
         options: {
@@ -239,7 +288,16 @@ function createLineChart(canvasId, labels, data, color, label) {
                 legend: { display: false },
                 tooltip: {
                     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    padding: 10
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            return label + ': ' + context.parsed.y.toFixed(1);
+                        }
+                    }
                 }
             },
             scales: {
@@ -252,24 +310,23 @@ function createLineChart(canvasId, labels, data, color, label) {
                         color: '#1f2937',
                         maxRotation: 45, 
                         minRotation: 45,
-                        font: { 
-                            size: 9 
-                        },
+                        font: { size: 9 },
                         autoSkip: true,
                         maxTicksLimit: 8,
                         padding: 8
                     }
                 },
                 y: {
+                    min: 0,
+                    max: canvasId === 'temp-chart' ? 50 : 100,
+                    ticks: {
+                        stepSize: canvasId === 'temp-chart' ? 10 : 20,
+                        color: '#1f2937',
+                        font: { size: 10 },
+                        padding: 5
+                    },
                     grid: { 
                         color: 'rgba(0, 0, 0, 0.1)' 
-                    },
-                    ticks: { 
-                        color: '#1f2937',
-                        font: { 
-                            size: 10 
-                        },
-                        padding: 5
                     }
                 }
             }
@@ -285,19 +342,26 @@ function createLineChart(canvasId, labels, data, color, label) {
 // ========================================
 
 function setupTimeRangeListeners() {
+    // Add event listener to ALL buttons (both panels)
     document.querySelectorAll('.time-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const range = this.dataset.range;
             selectedRange = range;
             
-            // Update active button
-            this.closest('.time-selector').querySelectorAll('.time-btn').forEach(b => {
-                b.classList.remove('active');
-            });
-            this.classList.add('active');
+            console.log(`🔄 Time range changed: ${range}`);
             
-            // Refetch data
+            // Update ALL buttons in BOTH panels
+            document.querySelectorAll('.time-btn').forEach(b => {
+                if (b.dataset.range === range) {
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+            });
+            
+            // Force refetch data with new range
             if (selectedDevice) {
+                console.log(`🔃 Forcing data refresh for ${selectedDevice} with range ${range}`);
                 fetchDeviceData(selectedDevice, range);
             }
         });
@@ -314,17 +378,27 @@ function setupRealtimeUpdates() {
     eventSource = new EventSource('/api/events/stream');
     
     eventSource.onopen = () => {
-        console.log('✅ Connected to SSE stream');
+        console.log('✅ SSE Connected');
         showConnectionStatus(true);
     };
     
     eventSource.onmessage = (event) => {
         try {
             const newLog = JSON.parse(event.data);
+            console.log('📨 New data received:', newLog.device_id);
             
-            // Update if this is the selected device
-            if (selectedDevice && newLog.device_id === selectedDevice) {
+            // Only update if "Live" range is selected
+            if (selectedDevice && newLog.device_id === selectedDevice && selectedRange === 'live') {
+                console.log('🔄 Updating current device data (Live mode)');
                 fetchDeviceData(selectedDevice, selectedRange);
+            }
+            
+            // If no device selected yet, auto-select the first one
+            if (!selectedDevice) {
+                console.log('🎯 Auto-selecting device:', newLog.device_id);
+                selectDevice(newLog.device_id);
+                // Also refresh device list to show new device in navbar
+                fetchDevicesList();
             }
         } catch (error) {
             console.error('❌ SSE error:', error);
@@ -332,7 +406,7 @@ function setupRealtimeUpdates() {
     };
     
     eventSource.onerror = () => {
-        console.warn('⚠️ Reconnecting...');
+        console.warn('⚠️ SSE disconnected, reconnecting...');
         showConnectionStatus(false);
         setTimeout(() => setupRealtimeUpdates(), 5000);
     };

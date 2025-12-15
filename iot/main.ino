@@ -1,5 +1,5 @@
 // DHT Logger Source Code
-// Version: 0.1.4
+// Version: 0.1.5
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>

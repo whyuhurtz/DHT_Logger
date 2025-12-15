@@ -190,19 +190,21 @@ body.scada-body {
 .time-selector {
     display: flex;
     justify-content: center;
-    gap: 8px;
+    gap: 6px; /* Reduced from 8px to fit 6 buttons */
     margin-bottom: 10px;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
 }
 
 .time-btn {
     background: var(--scada-bg);
     border: 1px solid var(--scada-border);
     color: var(--scada-text);
-    padding: 6px 12px;
+    padding: 6px 10px; /* Reduced from 6px 12px */
     border-radius: 5px;
-    font-size: 0.85rem;
+    font-size: 0.8rem; /* Reduced from 0.85rem */
     cursor: pointer;
     transition: all 0.3s ease;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .time-btn:hover {
@@ -245,6 +247,11 @@ body.scada-body {
     
     body.scada-body {
         overflow-y: auto;
+    }
+
+    .time-btn {
+        padding: 4px 8px; /* Smaller on mobile */
+        font-size: 0.7rem; /* Smaller font on mobile */
     }
     
     .gauge-container {

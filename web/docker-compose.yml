@@ -33,7 +33,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-    image: fastapi_dht:v0.1.4
+    image: fastapi_dht:v0.1.5
     container_name: fastapi_dht
     restart: unless-stopped
     ports:
