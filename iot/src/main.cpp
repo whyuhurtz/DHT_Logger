@@ -1,6 +1,7 @@
 // DHT Logger Source Code
-// Version: 0.1.5
+// Version: 1.0.0
 
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
@@ -22,60 +23,26 @@ bool alertSent = false;
 unsigned long lastAlertTime = 0;
 const signed long ALERT_COOLDOWN = 300000; // 5 minutes cooldown
 
-float TEMP_MAX_THRESHOLD = 30.0; // Change this variable according to your condition!
-float HUMI_MAX_THRESHOLD = 75.0; // Change this variable according to your condition!
+float TEMP_MAX_THRESHOLD = 30.0;
+float HUMI_MAX_THRESHOLD = 75.0;
 
-void setup() {
-  Serial.begin(115200);
-  
-  // Connect to WiFi using credentials from secret.h
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD, 0, NULL, true);
-  Serial.print("📡 Connecting to WiFi");
-  
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("🔌 Connecting to MQTT broker...");
+    String clientId = "ESP32_DHT_" + mac_address;
+    clientId.replace(":", "");
+    
+    if (client.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+      Serial.println("connected ✅");
+      client.subscribe(MQTT_TOPIC_ACK);
+      Serial.printf("📡 Subscribed to: %s\n", MQTT_TOPIC_ACK);
+    } else {
+      Serial.print("failed ❌, rc=");
+      Serial.print(client.state());
+      Serial.println(" retrying in 5 seconds...");
+      delay(5000);
+    }
   }
-  
-  Serial.println("\n✅ WiFi connected");
-  Serial.print("📍 IP Address: ");
-  Serial.println(WiFi.localIP());
-  
-  // Get MAC address
-  mac_address = WiFi.macAddress();
-  Serial.print("🔌 MAC Address: ");
-  Serial.println(mac_address);
-  
-  // Initialize NTP
-  configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
-  Serial.println("⏰ Waiting for NTP time sync...");
-  
-  struct tm timeinfo;
-  int retry = 0;
-  while (!getLocalTime(&timeinfo) && retry < 10) {
-    delay(1000);
-    Serial.print(".");
-    retry++;
-  }
-  
-  if (retry < 10) {
-    Serial.println("\n✅ Time synchronized");
-    Serial.println(&timeinfo, "📅 Current time: %Y-%m-%d %H:%M:%S");
-  } else {
-    Serial.println("\n❌ Failed to sync time");
-  }
-  
-  // Setup MQTT
-  espClient.setInsecure();
-  client.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
-  client.setKeepAlive(60);
-  client.setCallback(callback);
-  
-  // Initialize DHT sensor
-  dht.begin();
-  Serial.println("🌡️ DHT sensor initialized");
-  
-  reconnect();
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -89,7 +56,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
   
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, message);
   
   if (error) {
@@ -126,25 +93,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("👉 Error: ");
     Serial.println(error_msg);
     Serial.println("⚠️ Data was NOT saved to database!");
-  }
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("🔌 Connecting to MQTT broker...");
-    String clientId = "ESP32_DHT_" + mac_address;
-    clientId.replace(":", "");
-    
-    if (client.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
-      Serial.println("connected ✅");
-      client.subscribe(MQTT_TOPIC_ACK);
-      Serial.printf("📡 Subscribed to: %s\n", MQTT_TOPIC_ACK);
-    } else {
-      Serial.print("failed ❌, rc=");
-      Serial.print(client.state());
-      Serial.println(" retrying in 5 seconds...");
-      delay(5000);
-    }
   }
 }
 
@@ -202,7 +150,7 @@ bool sendTelegramAlert(float temperature, float humidity) {
     totalTargets++;
     Serial.println("💬 Sending Alert Notification to Telegram...");
     
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     doc["chat_id"] = String(TELEGRAM_CHAT_ID);
     doc["text"] = message;
     doc["parse_mode"] = "Markdown";
@@ -228,6 +176,59 @@ bool sendTelegramAlert(float temperature, float humidity) {
   Serial.printf("📊 Telegram Alert Summary: %d/%d sent successfully\n", successCount, totalTargets);
   
   return overallSuccess;
+}
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Connect to WiFi using credentials from secret.h
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD, 0, NULL, true);
+  Serial.print("📡 Connecting to WiFi");
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  Serial.println("\n✅ WiFi connected");
+  Serial.print("📍 IP Address: ");
+  Serial.println(WiFi.localIP());
+  
+  // Get MAC address
+  mac_address = WiFi.macAddress();
+  Serial.print("🔌 MAC Address: ");
+  Serial.println(mac_address);
+  
+  // Initialize NTP
+  configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+  Serial.println("⏰ Waiting for NTP time sync...");
+  
+  struct tm timeinfo;
+  int retry = 0;
+  while (!getLocalTime(&timeinfo) && retry < 10) {
+    delay(1000);
+    Serial.print(".");
+    retry++;
+  }
+  
+  if (retry < 10) {
+    Serial.println("\n✅ Time synchronized");
+    Serial.println(&timeinfo, "📅 Current time: %Y-%m-%d %H:%M:%S");
+  } else {
+    Serial.println("\n❌ Failed to sync time");
+  }
+  
+  // Setup MQTT
+  espClient.setInsecure();
+  client.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
+  client.setKeepAlive(60);
+  client.setCallback(callback);
+  
+  // Initialize DHT sensor
+  dht.begin();
+  Serial.println("🌡️ DHT sensor initialized");
+  
+  reconnect();
 }
 
 void loop() {
@@ -277,7 +278,7 @@ void loop() {
   }
   
   // Create JSON payload
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   doc["device_id"] = DEVICE_ID;
   doc["mac_address"] = mac_address;
   doc["temperature"] = round(temperature * 10) / 10.0;

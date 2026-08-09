@@ -16,7 +16,7 @@ for env_path in env_paths:
     break
 
 class AppEnvironment(BaseSettings):
-  APP_VERSION: str = getenv("APP_VERSION", "0.0.1")
+  APP_VERSION: str = getenv("APP_VERSION", "1.0.0")
   APP_SECRET_KEY: str = getenv("APP_SECRET_KEY", "This-is-not-safe-for-production!")
   DEBUG: bool = getenv("DEBUG", "False") == "True"
   

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "author": "Wahyu Priambodo",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht1", "top": 19.5, "left": -120.6, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "esp:4", "dht1:SDA", "green", [ "h24.04", "v86.4", "h-220.9" ] ],
+    [ "dht1:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "esp:GND.2", "dht1:GND", "black", [ "h43.24", "v220.8", "h-220.8" ] ]
+  ],
+  "dependencies": {}
+}

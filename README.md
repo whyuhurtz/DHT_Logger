@@ -4,7 +4,7 @@
 
 **IoT Sensor Data Logger with Real-time Dashboard**
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/) [![EMQX](https://img.shields.io/badge/EMQX-00B388?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.emqx.com/) [![Version](https://img.shields.io/badge/version-0.1.4-blue?style=for-the-badge)](https://github.com/whyuhurtz/DHT_Logger/releases)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/) [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/) [![EMQX](https://img.shields.io/badge/EMQX-00B388?style=for-the-badge&logo=eclipse-mosquitto&logoColor=white)](https://www.emqx.com/) [![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)](https://github.com/whyuhurtz/DHT_Logger/releases)
 
 </div>
 
@@ -91,7 +91,7 @@ DHT_Logger/
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `APP_VERSION` | Application version | `0.0.1` |
+| `APP_VERSION` | Application version | `1.0.0` |
 | `MYSQL_HOST` | MySQL hostname | `mysql_dht` (Docker) / `localhost` (Manual) |
 | `MYSQL_PORT` | MySQL port | `3306` |
 | `MYSQL_USER` | Database username | `your_user` |
